@@ -73,12 +73,35 @@ class Piece:
     def __init__(self, path, amp=1.0, seed=0):
         self.img = Image.open(path).convert("RGBA")
         self.amp = amp
+        self.seed = seed
         self.rng = random.Random(seed * 977 + 13)
         # Rotate about the piece's OWN centre, not the canvas centre. Each piece is stored
         # full-canvas, so spinning about the canvas centre swings an off-centre piece
         # through an arc and leaves a visible ghost of its original position.
         bb = self.img.getchannel("A").getbbox() or (0, 0, self.img.width, self.img.height)
         self.centre = ((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2)
+
+    def pose(self, frame_i, step):
+        """The offset for this frame. Poses HOLD for `step` frames, then change.
+
+        This is 'shooting on twos'. Re-rolling every frame reads as vibration or grain;
+        holding a pose and then stepping to a new one reads as a hand moving paper. Keyed
+        off the pose index so the same pose is reproduced for every frame it spans.
+        """
+        rng = random.Random(self.seed * 977 + 13 + (frame_i // max(1, step)) * 7919)
+        return (rng.uniform(-BOIL_PX, BOIL_PX) * self.amp,
+                rng.uniform(-BOIL_PX, BOIL_PX) * self.amp,
+                rng.uniform(-BOIL_DEG, BOIL_DEG) * self.amp)
+
+    def draw_stepped(self, canvas, z, W, H, frame_i, step):
+        dx, dy, rot = self.pose(frame_i, step)
+        im = self.img
+        if abs(rot) > 0.01:
+            im = im.rotate(rot, resample=Image.BICUBIC, center=self.centre)
+        bw, bh = int(W * z), int(H * z)
+        im = im.resize((bw, bh), Image.LANCZOS)
+        ox, oy = (bw - W) // 2, (bh - H) // 2
+        canvas.alpha_composite(im.crop((ox, oy, ox + W, oy + H)), (int(dx), int(dy)))
 
     def draw(self, canvas, z, W, H):
         im = self.img
@@ -96,7 +119,7 @@ class Piece:
 
 
 def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
-                  push=PUSH_DEFAULT, amp=1.0, blur_under=0):
+                  push=PUSH_DEFAULT, amp=1.0, blur_under=0, step=2):
     """Steady eased push on the scene; every cut-out piece twitches independently on top.
 
     blur_under is off by default: at 2px of jitter the piece still covers its own original
@@ -127,12 +150,12 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
         ox, oy = (bw - W) // 2, (bh - H) // 2
         frame = base.resize((bw, bh), Image.LANCZOS).crop((ox, oy, ox + W, oy + H))
         for p in pieces:
-            p.draw(frame, z, W, H)
+            p.draw_stepped(frame, z, W, H, i, step)
         proc.stdin.write(frame.convert("RGB").tobytes())
 
     proc.stdin.close()
     proc.wait()
-    print(f"-> {out} ({frames} frames @ {FPS}fps, {len(pieces)} pieces)")
+    print(f"-> {out} ({frames} frames @ {FPS}fps, {len(pieces)} pieces, on {step}s)")
     return out
 
 
