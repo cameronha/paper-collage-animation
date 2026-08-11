@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-Stop-motion compositor: a stylized backdrop plus alpha cut-out elements that snap in,
-rendered at a low frame rate with per-frame "boil" so it reads as hand-placed paper
-rather than a smooth digital tween.
+Stop-motion compositor: a stylized scene whose cut-out pieces are lifted off it, then
+re-composited so each piece twitches on its own while the camera holds steady.
 
-Boil is the whole trick. Every element gets a tiny random offset and rotation that
-re-rolls only on each rendered frame, so settled pieces still breathe.
+Two things carry the look. Shooting ON TWOS (each pose held 2 frames) is what reads as a
+hand moving paper rather than as vibration. And every piece boils independently, on its own
+random phase, so nothing pulses in unison.
 """
 import math
 import random
 import subprocess
-import sys
 
 from PIL import Image, ImageChops, ImageFilter
 
@@ -28,34 +27,6 @@ def ease_back(t):
     """Overshoot then settle — the paper 'snap'."""
     c1, c3 = 1.70158, 2.70158
     return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2
-
-
-class Element:
-    def __init__(self, path, x, y, scale=1.0, t_in=0.0, dur_in=0.45, rot=0.0):
-        self.img = Image.open(path).convert("RGBA")
-        if scale != 1.0:
-            self.img = self.img.resize(
-                (int(self.img.width * scale), int(self.img.height * scale)), Image.LANCZOS)
-        self.x, self.y, self.t_in, self.dur_in, self.rot = x, y, t_in, dur_in, rot
-
-    def draw(self, canvas, t, rng):
-        if t < self.t_in:
-            return
-        p = min(1.0, (t - self.t_in) / self.dur_in)
-        s = ease_back(p)
-        # snap in from slightly enlarged, so it lands rather than flies
-        scale = 1.35 - 0.35 * s
-        im = self.img
-        if abs(scale - 1.0) > 0.01:
-            im = im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))),
-                           Image.LANCZOS)
-        rot = self.rot + rng.uniform(-BOIL_DEG, BOIL_DEG)
-        if abs(rot) > 0.01:
-            im = im.rotate(rot, resample=Image.BICUBIC, expand=True)
-        dx = rng.uniform(-BOIL_PX, BOIL_PX)
-        dy = rng.uniform(-BOIL_PX, BOIL_PX)
-        canvas.alpha_composite(im, (int(self.x - im.width / 2 + dx),
-                                    int(self.y - im.height / 2 + dy)))
 
 
 
@@ -223,13 +194,12 @@ class Piece:
 
 
 def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
-                  push=PUSH_DEFAULT, amp=1.0, blur_under=0, step=2,
+                  push=PUSH_DEFAULT, amp=1.0, step=2,
                   assemble=1.0, stagger=0.14, drift=6.0, autocrop=True):
     """Steady eased push on the scene; every cut-out piece twitches independently on top.
 
-    blur_under is off by default: at 2px of jitter the piece still covers its own original
-    almost entirely, and blurring the region underneath produced a visible dark halo that
-    was far worse than the sliver of doubling it was meant to hide.
+    The knocked-out holes are dilated to cover the drift, so a piece never slides off its
+    own hole and exposes the original beneath it.
     """
     scene = Image.open(scene_path).convert("RGBA")
     pieces = [Piece(p, amp=amp, seed=i) for i, p in enumerate(piece_paths)]
@@ -267,13 +237,7 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
         for p in pieces:
             p.set_drift(drift)
 
-    base = scene.copy()
-    if blur_under and pieces:
-        union = Image.new("L", scene.size, 0)
-        for p in pieces:
-            union = ImageChops.lighter(union, p.img.getchannel("A"))
-        blurred = scene.filter(ImageFilter.GaussianBlur(blur_under))
-        base = Image.composite(blurred, scene, union)
+    base = scene
 
     frames = int(dur * FPS)
     proc = subprocess.Popen(
@@ -299,33 +263,4 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
     if drift: extra.append(f"drift {drift}px")
     print(f"-> {out} ({frames} frames @ {FPS}fps, {len(pieces)} pieces, on {step}s"
           + (", " + ", ".join(extra) if extra else "") + ")")
-    return out
-
-
-def render(backdrop_path, elements, out, dur=4.0, W=1920, H=1080, push=PUSH_DEFAULT):
-    bg = Image.open(backdrop_path).convert("RGBA")
-    frames = int(dur * FPS)
-    rng = random.Random(7)
-
-    proc = subprocess.Popen(
-        ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
-         "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-an",
-         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", out],
-        stdin=subprocess.PIPE)
-
-    for i in range(frames):
-        t = i / FPS
-        # Smooth, slow, eased push. No boil here — the camera stays dead steady.
-        z = 1.0 + push * smoothstep(i / max(1, frames - 1))
-        bw, bh = int(W * z), int(H * z)
-        ox, oy = (bw - W) // 2, (bh - H) // 2
-        frame = bg.resize((bw, bh), Image.LANCZOS).crop((ox, oy, ox + W, oy + H))
-
-        for el in elements:
-            el.draw(frame, t, rng)
-        proc.stdin.write(frame.convert("RGB").tobytes())
-
-    proc.stdin.close()
-    proc.wait()
-    print(f"-> {out} ({frames} frames @ {FPS}fps)")
     return out

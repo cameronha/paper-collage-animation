@@ -72,21 +72,40 @@ def fetch(url, workdir):
     import shutil
     import urllib.parse
     os.makedirs(workdir, exist_ok=True)
+    EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+           "image/gif": ".gif"}
     req = urllib.request.Request(url, headers={"User-Agent": "broll/1.0"})
-    with urllib.request.urlopen(req, timeout=60, context=S.SSL_CTX) as r:
-        ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip()
+    try:
+        with urllib.request.urlopen(req, timeout=60, context=S.SSL_CTX) as r:
+            ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip()
+            if not ctype.startswith("image/"):
+                raise SystemExit(f"that URL returned {ctype or 'no content-type'}, not an image")
+            dst = os.path.join(workdir, "source" + EXT.get(ctype, ".img"))
+            with open(dst, "wb") as f:
+                shutil.copyfileobj(r, f)
+    except urllib.error.URLError as e:
+        # certifi lags the macOS keychain on new CA roots (e.g. ISRG Root YR), so perfectly
+        # valid sites fail here. Fall back to curl, which validates against the SYSTEM trust
+        # store. Verification is still fully on — this is a fresher trust store, not a laxer one.
+        if "CERTIFICATE_VERIFY_FAILED" not in str(e):
+            raise SystemExit(f"could not fetch that URL: {e}")
+        print("       certifi rejected the cert chain; retrying via system trust store")
+        import subprocess
+        dst = os.path.join(workdir, "source.img")
+        p = subprocess.run(["curl", "-fsSL", "--max-time", "60", "-A", "broll/1.0",
+                            "-w", "%{content_type}", "-o", dst, url],
+                           capture_output=True, text=True)
+        if p.returncode != 0:
+            raise SystemExit(f"could not fetch that URL (curl exit {p.returncode})")
+        ctype = (p.stdout or "").split(";")[0].strip()
         if not ctype.startswith("image/"):
             raise SystemExit(f"that URL returned {ctype or 'no content-type'}, not an image")
-        ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
-               "image/gif": ".gif"}.get(ctype, ".img")
-        name = os.path.basename(urllib.parse.urlparse(url).path) or "downloaded"
-        if not name.lower().endswith(ext):
-            name = os.path.splitext(name)[0] + ext
-        dst = os.path.join(workdir, "source" + ext)
-        with open(dst, "wb") as f:
-            shutil.copyfileobj(r, f)
+        better = os.path.join(workdir, "source" + EXT.get(ctype, ".img"))
+        if better != dst:
+            os.replace(dst, better); dst = better
     Image.open(dst).verify()                      # refuse anything Pillow can't read
-    print(f"       downloaded {name} ({os.path.getsize(dst)//1024} KB) -> {dst}")
+    name = os.path.basename(urllib.parse.urlparse(url).path) or "downloaded"
+    print(f"       downloaded {name} ({os.path.getsize(dst)//1024} KB)")
     return dst
 
 
