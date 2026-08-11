@@ -59,6 +59,31 @@ class Element:
 
 
 
+
+def paper_colour(scene, bright_cut=170):
+    """The paper stock a scene is printed on, for filling knocked-out piece regions.
+
+    Not simply the most common colour: halftone spreads the cream ground across hundreds
+    of near-identical values while a silhouette or a dark wall is one solid tone, so a raw
+    mode returns near-black on dark scenes and fills the holes with ink instead of paper.
+    Quantise first to collapse the halftone spread, then take the most common tone that is
+    actually light. Falls back to the plain mode if a scene has no light ground at all.
+    """
+    q = scene.convert("RGB").quantize(colors=16, method=Image.MEDIANCUT)
+    pal = q.getpalette()
+    best, best_n = None, -1
+    for n, idx in (q.getcolors() or []):
+        r, g, b = pal[idx * 3:idx * 3 + 3]
+        if 0.299 * r + 0.587 * g + 0.114 * b >= bright_cut and n > best_n:
+            best, best_n = (r, g, b), n
+    if best:
+        return best
+    counts = {}
+    for n, c in (scene.convert("RGB").getcolors(maxcolors=1 << 24) or []):
+        counts[c] = n
+    return max(counts, key=counts.get) if counts else (240, 235, 220)
+
+
 def margin_box(scene_path, tol=36):
     """Find the artwork inside any flat paper margin the model baked in.
 
@@ -217,10 +242,7 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
         # A piece cannot fly in while a copy of it sits in the base. Knock every piece's
         # region out of the base to flat paper stock, then let the pieces rebuild the
         # scene onto it. Fill colour = the scene's most common colour (the paper ground).
-        import numpy as _np
-        arr = _np.array(scene.convert("RGB")).reshape(-1, 3)
-        cols, counts = _np.unique(arr, axis=0, return_counts=True)
-        ground = tuple(int(v) for v in cols[counts.argmax()])
+        ground = paper_colour(scene)
         union = Image.new("L", scene.size, 0)
         for p in pieces:
             union = ImageChops.lighter(union, p.img.getchannel("A"))

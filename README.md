@@ -12,7 +12,21 @@ the shot comes from the photo. Motion comes from the scene itself.
   image generation is not on the free tier, ~$0.04/image)
 - `ffmpeg`, `python3` with `pillow`, `numpy`, `certifi`
 
-## The pipeline
+## One command
+
+```bash
+python3 broll.py photo.jpg                    # photo in, mp4 out
+python3 broll.py photo.jpg --pieces 6 --dur 4
+python3 broll.py photo.jpg --reuse            # re-render from cached pieces, free
+python3 broll.py photo.jpg --no-drift         # motion variants
+```
+
+It stylizes the scene, asks the model to name its own cut-out pieces, isolates and keys
+each one (skipping any that fail rather than dying), derives the frame size from the
+scene's aspect, and renders. Intermediates live in a `.work` dir beside the output, so
+`--reuse` re-renders with different motion settings at no API cost.
+
+## The pipeline (what the wrapper does, if you need to drive it by hand)
 
 ```bash
 cd ~/Coding/broll
@@ -86,6 +100,12 @@ are on by default — Cam picked the combination over either alone.
 **Baked-in paper margins.** Scene generation sometimes insets the collage on a page. That
 border is visible in the shot. `margin_box()` detects and crops it off the scene and every
 piece identically, and runs automatically.
+
+**Dark scenes and the ground fill.** The assembly fills knocked-out piece regions with the
+scene's paper colour. That can't be the plain modal colour: halftone spreads the cream
+ground over hundreds of near-identical values while a silhouette is one solid tone, so on a
+dark scene the mode is near-black and the holes fill with ink. `paper_colour()` quantises
+first, then takes the most common *light* tone.
 
 **Hallucinated content.** The model will invent detail to fill blurred or low-resolution
 areas — it put a person in an empty window on a 275x183 source. `SCENE_PROMPT` now forbids
