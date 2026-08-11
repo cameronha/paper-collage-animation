@@ -63,7 +63,7 @@ SCENE_PROMPT = (
     "Now, with that rule absolute: "
     "recreate this entire scene, including its background and setting, as a {style} "
     "Keep the original composition. "
-    "FACES: exempt faces from the halftone screen.Render the skin of each face in smooth "
+    "FACES: exempt faces from the halftone screen. Render the skin of each face in smooth "
     "continuous tone with clean unbroken edges and no dot pattern, so the eyes, nose and "
     "mouth resolve cleanly even on a small face. A halftone screen coarse enough to see is "
     "always too coarse for a small face, and dot-scale features read as uncanny. "
