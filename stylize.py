@@ -109,6 +109,13 @@ def post_json(model, body, timeout=180, attempts=4):
                 return json.load(r)
         except urllib.error.HTTPError as e:
             detail = e.read().decode()[:300]
+            # A 429 usually means rate limiting and is worth retrying. "Credits depleted"
+            # arrives as a 429 too and will never resolve on its own, so fail fast on it
+            # instead of backing off three times for nothing.
+            if "credits are depleted" in detail or "RESOURCE_EXHAUSTED" in detail and "credit" in detail:
+                raise GenerationError(
+                    "Gemini prepayment credits are depleted — top up or switch the project "
+                    "to pay-as-you-go at https://ai.studio/projects")
             if e.code in (429, 500, 503) and n < attempts - 1:
                 wait = 5 * (2 ** n)
                 print(f"       HTTP {e.code}, retrying in {wait}s ...")

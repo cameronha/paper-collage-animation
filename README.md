@@ -96,6 +96,13 @@ Distance (`BOIL_PX`/`BOIL_DEG` × `amp`) and rate (`FPS`, `step`) are independen
 pieces slide in and rebuild the scene. `drift` adds slow travel on top of the boil. Both
 are on by default — Cam picked the combination over either alone.
 
+## Billing
+
+The project is on **prepaid credits**. When they run out the API returns a 429 whose message
+says "prepayment credits are depleted" — `post_json` detects that and fails immediately
+rather than retrying, since it will never resolve on its own. Top up or switch to
+pay-as-you-go at https://ai.studio/projects.
+
 ## Two things that will bite you
 
 **Baked-in paper margins.** Scene generation sometimes insets the collage on a page. That
