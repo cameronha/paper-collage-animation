@@ -71,15 +71,20 @@ SCENE_STYLE = (
 
 SCENE_PROMPT = (
     "Recreate this entire scene, including its background and setting, as a {style} "
-    "Keep the original composition. Make every person generic and unrecognizable, not a "
-    "likeness of any real individual. "
+    "Keep the original composition. "
+    "FACES: render every face in the same halftone cut-out language as the rest of the "
+    "image — simplified and stylized, but PRESENT and complete with eyes, nose and mouth. "
+    "Do NOT blank, blur, smooth over, mask or erase anyone's face. The halftone treatment "
+    "already abstracts people; no further anonymising is needed. "
     "DO NOT INVENT CONTENT: do not add any person, object, sign or detail that is not "
     "already present in the source photo. Where an area of the source is blurred, dark or "
     "low-detail, render it as a plain simplified shape rather than inventing something to "
     "fill it. Empty stays empty. "
-    "NO READABLE TEXT ANYWHERE: any writing, signage, screen content, chalkboard, whiteboard "
-    "or label in the source must be rendered as abstract illegible marks, blocks or "
-    "scribbles. No legible words or letters in the image at all."
+    "NO READABLE TEXT ANYWHERE: replace ALL writing with abstract illegible marks. This "
+    "applies to every surface without exception — projection screens, slides, chalkboards, "
+    "whiteboards, monitors, posters, signage, labels, paperwork, book spines and clothing. "
+    "Draw wavy lines, dashes and grey blocks where words were. A viewer must not be able to "
+    "read a single word or recognise a single letter anywhere in the image."
 )
 
 PLATE_PROMPT = (
