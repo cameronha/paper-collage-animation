@@ -70,9 +70,23 @@ SCENE_STYLE = (
 )
 
 SCENE_PROMPT = (
-    "Recreate this entire scene, including its background and setting, as a {style} "
+    # Text rule goes FIRST and is stated as an override. Buried at the end it lost to the
+    # faithfulness clauses whenever text was large and sharp: the model scrambled small
+    # incidental writing and rendered a big headline perfectly, reading it as content worth
+    # preserving rather than as text to remove.
+    "RULE ONE, OVERRIDES EVERYTHING BELOW: this image must contain NO READABLE TEXT. "
+    "Replace every piece of writing with abstract illegible marks — wavy lines, dashes and "
+    "grey blocks. This applies to every surface without exception (projection screens, "
+    "slides, monitors, chalkboards, whiteboards, posters, signage, labels, paperwork, book "
+    "spines, clothing) and it applies NO MATTER how large, sharp, central or important the "
+    "text looks. Big bold headline text especially must be replaced — do not preserve it "
+    "because it seems to be the subject of the photo. Being faithful to the source does NOT "
+    "include reproducing its words. A viewer must not be able to read a single word or "
+    "recognise a single letter anywhere in the image. "
+    "Now, with that rule absolute: "
+    "recreate this entire scene, including its background and setting, as a {style} "
     "Keep the original composition. "
-    "FACES: exempt faces from the halftone screen. Render the skin of each face in smooth "
+    "FACES: exempt faces from the halftone screen.Render the skin of each face in smooth "
     "continuous tone with clean unbroken edges and no dot pattern, so the eyes, nose and "
     "mouth resolve cleanly even on a small face. A halftone screen coarse enough to see is "
     "always too coarse for a small face, and dot-scale features read as uncanny. "
@@ -83,11 +97,7 @@ SCENE_PROMPT = (
     "already present in the source photo. Where an area of the source is blurred, dark or "
     "low-detail, render it as a plain simplified shape rather than inventing something to "
     "fill it. Empty stays empty. "
-    "NO READABLE TEXT ANYWHERE: replace ALL writing with abstract illegible marks. This "
-    "applies to every surface without exception — projection screens, slides, chalkboards, "
-    "whiteboards, monitors, posters, signage, labels, paperwork, book spines and clothing. "
-    "Draw wavy lines, dashes and grey blocks where words were. A viewer must not be able to "
-    "read a single word or recognise a single letter anywhere in the image."
+    "Finally, re-read RULE ONE: no readable text anywhere, regardless of prominence."
 )
 
 PLATE_PROMPT = (
