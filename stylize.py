@@ -17,6 +17,7 @@ import json
 import mimetypes
 import os
 import ssl
+import time
 import subprocess
 import sys
 import urllib.request
@@ -98,17 +99,41 @@ def api_key() -> str:
     raise SystemExit("GEMINI_API_KEY not found in ~/.config/keys/.env")
 
 
-def _call(parts, dst):
-    req = urllib.request.Request(
-        ENDPOINT.format(model=MODEL),
-        data=json.dumps({"contents": [{"parts": parts}]}).encode(),
-        headers={"Content-Type": "application/json", "x-goog-api-key": api_key()},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=180, context=SSL_CTX) as r:
-            payload = json.load(r)
-    except urllib.error.HTTPError as e:
-        raise SystemExit(f"HTTP {e.code}\n{e.read().decode()[:600]}")
+class GenerationError(RuntimeError):
+    """A generation call failed. A normal Exception, NOT SystemExit — callers need to be
+    able to skip one bad piece and carry on with the shot."""
+
+
+def _call(parts, dst, attempts=4):
+    body = json.dumps({"contents": [{"parts": parts}]}).encode()
+    payload = None
+    for n in range(attempts):
+        req = urllib.request.Request(
+            ENDPOINT.format(model=MODEL), data=body,
+            headers={"Content-Type": "application/json", "x-goog-api-key": api_key()})
+        try:
+            with urllib.request.urlopen(req, timeout=180, context=SSL_CTX) as r:
+                payload = json.load(r)
+            break
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode()[:300]
+            # 503/429 are transient capacity, not our bug. Back off and retry rather than
+            # throwing away a scene we already paid for.
+            if e.code in (429, 500, 503) and n < attempts - 1:
+                wait = 5 * (2 ** n)
+                print(f"       HTTP {e.code}, retrying in {wait}s ...")
+                time.sleep(wait)
+                continue
+            raise GenerationError(f"HTTP {e.code}: {detail}")
+        except (urllib.error.URLError, TimeoutError) as e:
+            if n < attempts - 1:
+                wait = 5 * (2 ** n)
+                print(f"       {type(e).__name__}, retrying in {wait}s ...")
+                time.sleep(wait)
+                continue
+            raise GenerationError(str(e))
+    if payload is None:
+        raise GenerationError("no response after retries")
 
     for part in payload["candidates"][0]["content"]["parts"]:
         blob = part.get("inlineData") or part.get("inline_data")
@@ -118,7 +143,7 @@ def _call(parts, dst):
             return dst
         if part.get("text"):
             print(f"  model returned text: {part['text'][:200]}")
-    raise SystemExit("no image in response")
+    raise GenerationError("no image in response")
 
 
 def photo(src, dst):
