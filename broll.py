@@ -77,14 +77,6 @@ def frame_size(scene_path, height=1080):
     return (int(round(height * w / h / 2) * 2), height)
 
 
-def notify(title, msg):
-    """Banner on completion or failure. QuickTime opening signals success, but a failed
-    run opens nothing and is indistinguishable from one still working."""
-    t = title.replace('"', "'")
-    m = msg.replace('"', "'")
-    os.system(f"""osascript -e 'display notification "{m}" with title "{t}"' 2>/dev/null""")
-
-
 def main():
     ap = argparse.ArgumentParser(description="Photo -> stop-motion B-roll clip.")
     ap.add_argument("photo")
@@ -151,17 +143,8 @@ def main():
 
     print(f"\n{out}")
     print(f"work dir: {work}  (re-run with --reuse to re-render for free)")
-    notify("B-roll ready", f"{len(pieces)} pieces · {os.path.basename(out)}")
     os.system(f'open "{out}"')
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except SystemExit as e:
-        if e.code not in (0, None):
-            notify("B-roll FAILED", str(e.code)[:120])
-        raise
-    except Exception as e:
-        notify("B-roll FAILED", f"{type(e).__name__}: {e}"[:120])
-        raise
+    main()
