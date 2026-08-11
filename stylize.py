@@ -62,13 +62,19 @@ SCENE_STYLE = (
     "real paper drop shadow, clearly layered with visible separation between pieces. Subjects "
     "are pure black and white. Flat scanned lighting, no gradients, no photorealism, no 3D "
     "render, no CGI. Everything sits on a single completely flat uniform {bg} paper "
-    "background. No text, no lettering, no decorative shapes, no lines, no circles."
+    "background. No text, no lettering, no decorative shapes, no lines, no circles. "
+    "FULL BLEED: the artwork must extend all the way to all four edges of the image. No "
+    "page margin, no border, no frame, no mat, no white space around the artwork."
 )
 
 SCENE_PROMPT = (
-    "Recreate this entire scene, including the background people and setting, as a {style} "
+    "Recreate this entire scene, including its background and setting, as a {style} "
     "Keep the original composition. Make every person generic and unrecognizable, not a "
-    "likeness of any real individual."
+    "likeness of any real individual. "
+    "DO NOT INVENT CONTENT: do not add any person, object, sign or detail that is not "
+    "already present in the source photo. Where an area of the source is blurred, dark or "
+    "low-detail, render it as a plain simplified shape rather than inventing something to "
+    "fill it. Empty stays empty."
 )
 
 PLATE_PROMPT = (

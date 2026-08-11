@@ -58,6 +58,35 @@ class Element:
                                     int(self.y - im.height / 2 + dy)))
 
 
+
+def margin_box(scene_path, tol=36):
+    """Find the artwork inside any flat paper margin the model baked in.
+
+    Scene generation occasionally returns the collage inset on a page instead of full
+    bleed. That border is visible in the shot and reads as a flat picture on a table
+    rather than a scene. Detect it and crop it off — applied identically to the scene AND
+    every piece, so registration is preserved.
+    """
+    import numpy as np
+    a = np.array(Image.open(scene_path).convert("RGB")).astype(int)
+    H, W, _ = a.shape
+    corner = a[3, 3]
+
+    def run(line):
+        d = np.abs(line - corner).sum(axis=1)
+        i = 0
+        while i < len(d) and d[i] < tol:
+            i += 1
+        return i
+
+    left, top = run(a[H // 2, :]), run(a[:, W // 2])
+    right, bot = run(a[H // 2, ::-1]), run(a[::-1, W // 2])
+    box = (left, top, W - right, H - bot)
+    if box[2] - box[0] < W * 0.5 or box[3] - box[1] < H * 0.5:
+        return (0, 0, W, H)                       # refuse to crop away the picture
+    return box
+
+
 def smoothstep(t):
     """Ease the push in and out so it never starts or stops abruptly."""
     return t * t * (3 - 2 * t)
@@ -80,6 +109,42 @@ class Piece:
         # through an arc and leaves a visible ghost of its original position.
         bb = self.img.getchannel("A").getbbox() or (0, 0, self.img.width, self.img.height)
         self.centre = ((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2)
+        self.t_in = None          # None = present from frame 0 (no assembly)
+        self.dur_in = 0.5
+        self.from_dx = self.from_dy = self.from_rot = 0.0
+        self.drift = (0.0, 0.0)
+
+    def entry(self, t):
+        """Where this piece sits on its way in. Returns (dx, dy, rot, landed).
+
+        Slides in from off its home spot with a `back` overshoot so it lands rather than
+        glides. Translation and rotation only — no scaling, because scaling a full-canvas
+        piece scales about the canvas centre and would drag the piece across the frame.
+        """
+        if self.t_in is None:
+            return 0.0, 0.0, 0.0, True
+        if t < self.t_in:
+            return None, None, None, False          # not placed yet
+        p = (t - self.t_in) / self.dur_in
+        if p >= 1.0:
+            return 0.0, 0.0, 0.0, True
+        s = ease_back(p)
+        return (self.from_dx * (1 - s), self.from_dy * (1 - s),
+                self.from_rot * (1 - s), False)
+
+    def set_entry(self, t_in, dur_in=0.5, dist=140):
+        self.t_in, self.dur_in = t_in, dur_in
+        r = random.Random(self.seed * 31 + 5)
+        ang = r.uniform(0, 6.2832)
+        self.from_dx = math.cos(ang) * dist
+        self.from_dy = math.sin(ang) * dist
+        self.from_rot = r.uniform(-9, 9)
+
+    def set_drift(self, px):
+        """A slow intentional translation across the whole shot, on top of the boil."""
+        r = random.Random(self.seed * 131 + 17)
+        ang = r.uniform(0, 6.2832)
+        self.drift = (math.cos(ang) * px, math.sin(ang) * px)
 
     def pose(self, frame_i, step):
         """The offset for this frame. Poses HOLD for `step` frames, then change.
@@ -93,8 +158,16 @@ class Piece:
                 rng.uniform(-BOIL_PX, BOIL_PX) * self.amp,
                 rng.uniform(-BOIL_DEG, BOIL_DEG) * self.amp)
 
-    def draw_stepped(self, canvas, z, W, H, frame_i, step):
+    def draw_stepped(self, canvas, z, W, H, frame_i, step, t=0.0, prog=0.0):
+        edx, edy, erot, landed = self.entry(t)
+        if edx is None:
+            return                                  # hasn't been placed yet
         dx, dy, rot = self.pose(frame_i, step)
+        if not landed:
+            dx, dy, rot = 0.0, 0.0, 0.0             # no boil mid-flight
+        dx += edx + self.drift[0] * prog
+        dy += edy + self.drift[1] * prog
+        rot += erot
         im = self.img
         if abs(rot) > 0.01:
             im = im.rotate(rot, resample=Image.BICUBIC, center=self.centre)
@@ -119,7 +192,8 @@ class Piece:
 
 
 def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
-                  push=PUSH_DEFAULT, amp=1.0, blur_under=0, step=2):
+                  push=PUSH_DEFAULT, amp=1.0, blur_under=0, step=2,
+                  assemble=1.0, stagger=0.14, drift=14.0, autocrop=True):
     """Steady eased push on the scene; every cut-out piece twitches independently on top.
 
     blur_under is off by default: at 2px of jitter the piece still covers its own original
@@ -128,6 +202,35 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
     """
     scene = Image.open(scene_path).convert("RGBA")
     pieces = [Piece(p, amp=amp, seed=i) for i, p in enumerate(piece_paths)]
+
+    if autocrop:
+        box = margin_box(scene_path)
+        if box != (0, 0, scene.width, scene.height):
+            print(f"   cropped baked-in paper margin: {box}")
+            scene = scene.crop(box)
+            for p in pieces:
+                p.img = p.img.crop(box)
+                bb = p.img.getchannel("A").getbbox() or (0, 0, p.img.width, p.img.height)
+                p.centre = ((bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2)
+
+    if assemble:
+        # A piece cannot fly in while a copy of it sits in the base. Knock every piece's
+        # region out of the base to flat paper stock, then let the pieces rebuild the
+        # scene onto it. Fill colour = the scene's most common colour (the paper ground).
+        import numpy as _np
+        arr = _np.array(scene.convert("RGB")).reshape(-1, 3)
+        cols, counts = _np.unique(arr, axis=0, return_counts=True)
+        ground = tuple(int(v) for v in cols[counts.argmax()])
+        union = Image.new("L", scene.size, 0)
+        for p in pieces:
+            union = ImageChops.lighter(union, p.img.getchannel("A"))
+        scene = Image.composite(Image.new("RGBA", scene.size, ground + (255,)), scene, union)
+        for i, p in enumerate(pieces):
+            p.set_entry(i * stagger, dur_in=0.5)
+
+    if drift:
+        for p in pieces:
+            p.set_drift(drift)
 
     base = scene.copy()
     if blur_under and pieces:
@@ -149,13 +252,18 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
         bw, bh = int(W * z), int(H * z)
         ox, oy = (bw - W) // 2, (bh - H) // 2
         frame = base.resize((bw, bh), Image.LANCZOS).crop((ox, oy, ox + W, oy + H))
+        prog = i / max(1, frames - 1)
         for p in pieces:
-            p.draw_stepped(frame, z, W, H, i, step)
+            p.draw_stepped(frame, z, W, H, i, step, t=i / FPS, prog=prog)
         proc.stdin.write(frame.convert("RGB").tobytes())
 
     proc.stdin.close()
     proc.wait()
-    print(f"-> {out} ({frames} frames @ {FPS}fps, {len(pieces)} pieces, on {step}s)")
+    extra = []
+    if assemble: extra.append("assembling")
+    if drift: extra.append(f"drift {drift}px")
+    print(f"-> {out} ({frames} frames @ {FPS}fps, {len(pieces)} pieces, on {step}s"
+          + (", " + ", ".join(extra) if extra else "") + ")")
     return out
 
 

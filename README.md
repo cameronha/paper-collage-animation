@@ -57,6 +57,8 @@ shot.
 | `amp` | 0.5 | Jitter distance. ~0.5px / 0.175°. More than this reads as agitated. |
 | `PUSH_DEFAULT` | 0.065 | Slow eased zoom. The camera never jitters — only the pieces do. |
 | pieces | ~5 | 2 is too subtle. |
+| `assemble` | 1.0 | Pieces land over the first ~1.3s onto a knocked-out paper ground. Gives the shot an event. |
+| `drift` | 14 | Slow travel across the shot on top of the boil. |
 
 Distance (`BOIL_PX`/`BOIL_DEG` × `amp`) and rate (`FPS`, `step`) are independent knobs.
 
@@ -73,7 +75,19 @@ Distance (`BOIL_PX`/`BOIL_DEG` × `amp`) and rate (`FPS`, `step`) are independen
 - Gemini segmentation masks are a dead end on this key — models either 404, time out, or
   return `"..."` in the mask field. `isolate()` exists because of that.
 
-## Known limit (the v2 problem)
+## v2: the shot has an event
 
-Nothing happens inside a shot. Frame 1 and frame 60 are the same picture with the paper
-breathing. The texture is right and the shot has no event.
+`assemble` knocks every piece's region out of the base to flat paper stock, then the
+pieces slide in and rebuild the scene. `drift` adds slow travel on top of the boil. Both
+are on by default — Cam picked the combination over either alone.
+
+## Two things that will bite you
+
+**Baked-in paper margins.** Scene generation sometimes insets the collage on a page. That
+border is visible in the shot. `margin_box()` detects and crops it off the scene and every
+piece identically, and runs automatically.
+
+**Hallucinated content.** The model will invent detail to fill blurred or low-resolution
+areas — it put a person in an empty window on a 275x183 source. `SCENE_PROMPT` now forbids
+inventing anything not in the source and tells it to render low-detail areas as plain
+shapes. Risk scales inversely with source resolution.
