@@ -54,11 +54,7 @@ def plan_pieces(scene_path, n=5):
                              "data": base64.b64encode(buf.getvalue()).decode()}}]}],
         "generationConfig": {"temperature": 0.0},
     }).encode()
-    req = urllib.request.Request(
-        S.ENDPOINT.format(model=PLAN_MODEL), data=body,
-        headers={"Content-Type": "application/json", "x-goog-api-key": S.api_key()})
-    with urllib.request.urlopen(req, timeout=180, context=S.SSL_CTX) as r:
-        payload = json.load(r)
+    payload = S.post_json(PLAN_MODEL, body)
 
     text = "".join(p.get("text", "") for p in payload["candidates"][0]["content"]["parts"])
     m = re.search(r"\[.*\]", text, re.S)

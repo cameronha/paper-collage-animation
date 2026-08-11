@@ -104,21 +104,22 @@ class GenerationError(RuntimeError):
     able to skip one bad piece and carry on with the shot."""
 
 
-def _call(parts, dst, attempts=4):
-    body = json.dumps({"contents": [{"parts": parts}]}).encode()
-    payload = None
+def post_json(model, body, timeout=180, attempts=4):
+    """POST to the Gemini API with backoff on transient failures.
+
+    EVERY call to the API must go through here. 503s are frequent, and a second
+    un-retried code path is exactly how a failure slips through (plan_pieces had its own
+    urlopen and died on a 503 that _call would have ridden out).
+    """
     for n in range(attempts):
         req = urllib.request.Request(
-            ENDPOINT.format(model=MODEL), data=body,
+            ENDPOINT.format(model=model), data=body,
             headers={"Content-Type": "application/json", "x-goog-api-key": api_key()})
         try:
-            with urllib.request.urlopen(req, timeout=180, context=SSL_CTX) as r:
-                payload = json.load(r)
-            break
+            with urllib.request.urlopen(req, timeout=timeout, context=SSL_CTX) as r:
+                return json.load(r)
         except urllib.error.HTTPError as e:
             detail = e.read().decode()[:300]
-            # 503/429 are transient capacity, not our bug. Back off and retry rather than
-            # throwing away a scene we already paid for.
             if e.code in (429, 500, 503) and n < attempts - 1:
                 wait = 5 * (2 ** n)
                 print(f"       HTTP {e.code}, retrying in {wait}s ...")
@@ -132,8 +133,11 @@ def _call(parts, dst, attempts=4):
                 time.sleep(wait)
                 continue
             raise GenerationError(str(e))
-    if payload is None:
-        raise GenerationError("no response after retries")
+    raise GenerationError("no response after retries")
+
+
+def _call(parts, dst):
+    payload = post_json(MODEL, json.dumps({"contents": [{"parts": parts}]}).encode())
 
     for part in payload["candidates"][0]["content"]["parts"]:
         blob = part.get("inlineData") or part.get("inline_data")
