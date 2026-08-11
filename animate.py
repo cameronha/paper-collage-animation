@@ -218,7 +218,7 @@ class Piece:
 
 def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
                   push=PUSH_DEFAULT, amp=1.0, blur_under=0, step=2,
-                  assemble=1.0, stagger=0.14, drift=14.0, autocrop=True):
+                  assemble=1.0, stagger=0.14, drift=6.0, autocrop=True):
     """Steady eased push on the scene; every cut-out piece twitches independently on top.
 
     blur_under is off by default: at 2px of jitter the piece still covers its own original
@@ -246,6 +246,13 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
         union = Image.new("L", scene.size, 0)
         for p in pieces:
             union = ImageChops.lighter(union, p.img.getchannel("A"))
+        # The hole must be BIGGER than the piece, or the piece slides off it and exposes
+        # the original underneath. Two things shrink/move it: key_to_alpha erodes ~2px to
+        # kill the chroma fringe, and drift walks the piece up to `drift` px from home.
+        # Cheap dilation: blur then threshold low.
+        grow = 6 + int(drift)
+        union = union.filter(ImageFilter.GaussianBlur(grow * 0.6)).point(
+            lambda v: 255 if v > 16 else 0)
         scene = Image.composite(Image.new("RGBA", scene.size, ground + (255,)), scene, union)
         for i, p in enumerate(pieces):
             p.set_entry(i * stagger, dur_in=0.5)

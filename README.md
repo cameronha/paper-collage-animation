@@ -72,7 +72,7 @@ shot.
 | `PUSH_DEFAULT` | 0.065 | Slow eased zoom. The camera never jitters — only the pieces do. |
 | pieces | ~5 | 2 is too subtle. |
 | `assemble` | 1.0 | Pieces land over the first ~1.3s onto a knocked-out paper ground. Gives the shot an event. |
-| `drift` | 14 | Slow travel across the shot on top of the boil. |
+| `drift` | 6 | Slow travel on top of the boil. Higher looks livelier but widens the paper gap (see below). |
 
 Distance (`BOIL_PX`/`BOIL_DEG` × `amp`) and rate (`FPS`, `step`) are independent knobs.
 
@@ -106,6 +106,12 @@ scene's paper colour. That can't be the plain modal colour: halftone spreads the
 ground over hundreds of near-identical values while a silhouette is one solid tone, so on a
 dark scene the mode is near-black and the holes fill with ink. `paper_colour()` quantises
 first, then takes the most common *light* tone.
+
+**Drift vs the paper gap.** The assembly knocks a hole in the base for each piece. That hole
+is deliberately dilated by `6 + drift` px, because `key_to_alpha` erodes the piece ~2px and
+`drift` walks it away from home — without the dilation the piece slides off its own hole and
+exposes a doubled copy of itself. The cost is a visible paper gap around each piece that
+grows with drift. Cam picked drift=6 as the balance.
 
 **Hallucinated content.** The model will invent detail to fill blurred or low-resolution
 areas — it put a person in an empty window on a 275x183 source. `SCENE_PROMPT` now forbids

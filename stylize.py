@@ -74,7 +74,10 @@ SCENE_PROMPT = (
     "DO NOT INVENT CONTENT: do not add any person, object, sign or detail that is not "
     "already present in the source photo. Where an area of the source is blurred, dark or "
     "low-detail, render it as a plain simplified shape rather than inventing something to "
-    "fill it. Empty stays empty."
+    "fill it. Empty stays empty. "
+    "NO READABLE TEXT ANYWHERE: any writing, signage, screen content, chalkboard, whiteboard "
+    "or label in the source must be rendered as abstract illegible marks, blocks or "
+    "scribbles. No legible words or letters in the image at all."
 )
 
 PLATE_PROMPT = (

@@ -139,7 +139,7 @@ def main():
     animate.render_pieces(
         scene, pieces, out, dur=a.dur, W=W, H=H, amp=0.5, step=2,
         assemble=0.0 if a.no_assemble else 1.0,
-        drift=0.0 if a.no_drift else 14.0)
+        drift=0.0 if a.no_drift else 6.0)
 
     print(f"\n{out}")
     print(f"work dir: {work}  (re-run with --reuse to re-render for free)")
