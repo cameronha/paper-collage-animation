@@ -13,6 +13,7 @@ Usage:
   stylize.py element "<subject description>" <output.png>
 """
 import base64
+import http.client
 import json
 import mimetypes
 import os
@@ -126,7 +127,8 @@ def post_json(model, body, timeout=180, attempts=4):
                 time.sleep(wait)
                 continue
             raise GenerationError(f"HTTP {e.code}: {detail}")
-        except (urllib.error.URLError, TimeoutError) as e:
+        except (urllib.error.URLError, TimeoutError, ConnectionError,
+                http.client.HTTPException) as e:
             if n < attempts - 1:
                 wait = 5 * (2 ** n)
                 print(f"       {type(e).__name__}, retrying in {wait}s ...")
