@@ -63,6 +63,33 @@ def plan_pieces(scene_path, n=5):
     return [str(x) for x in json.loads(m.group(0))][:n]
 
 
+def fetch(url, workdir):
+    """Download a remote image so the rest of the pipeline sees an ordinary local file.
+
+    Kept deliberately strict: it must come back as an image, and it is written inside the
+    run's own work dir so a shot always carries its own source.
+    """
+    import shutil
+    import urllib.parse
+    os.makedirs(workdir, exist_ok=True)
+    req = urllib.request.Request(url, headers={"User-Agent": "broll/1.0"})
+    with urllib.request.urlopen(req, timeout=60, context=S.SSL_CTX) as r:
+        ctype = (r.headers.get("Content-Type") or "").split(";")[0].strip()
+        if not ctype.startswith("image/"):
+            raise SystemExit(f"that URL returned {ctype or 'no content-type'}, not an image")
+        ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+               "image/gif": ".gif"}.get(ctype, ".img")
+        name = os.path.basename(urllib.parse.urlparse(url).path) or "downloaded"
+        if not name.lower().endswith(ext):
+            name = os.path.splitext(name)[0] + ext
+        dst = os.path.join(workdir, "source" + ext)
+        with open(dst, "wb") as f:
+            shutil.copyfileobj(r, f)
+    Image.open(dst).verify()                      # refuse anything Pillow can't read
+    print(f"       downloaded {name} ({os.path.getsize(dst)//1024} KB) -> {dst}")
+    return dst
+
+
 def slug(s, i):
     return f"{i:02d}-" + (re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:32] or "piece")
 
@@ -86,12 +113,19 @@ def main():
                     help="reuse an existing work dir instead of regenerating (free)")
     a = ap.parse_args()
 
-    stem = os.path.splitext(os.path.basename(a.photo))[0]
+    is_url = a.photo.startswith(("http://", "https://"))
+    if is_url and not a.out:
+        raise SystemExit("--out is required when the source is a URL")
+    stem = os.path.splitext(os.path.basename(a.photo.split("?")[0]))[0] or "downloaded"
     out = a.out or os.path.join(os.path.dirname(os.path.abspath(a.photo)), f"{stem}-broll.mp4")
     work = os.path.splitext(out)[0] + ".work"
     os.makedirs(os.path.join(work, "iso"), exist_ok=True)
     os.makedirs(os.path.join(work, "pieces"), exist_ok=True)
     scene = os.path.join(work, "scene.png")
+
+    if is_url:
+        print(f"[0/4] fetching {a.photo[:70]}{'...' if len(a.photo) > 70 else ''}")
+        a.photo = fetch(a.photo, work)
 
     if a.reuse and os.path.exists(scene):
         print(f"[1/4] reusing {scene}")

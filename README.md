@@ -16,6 +16,7 @@ the shot comes from the photo. Motion comes from the scene itself.
 
 ```bash
 python3 broll.py photo.jpg                    # photo in, mp4 out
+python3 broll.py "https://…/photo.jpg" --out shot.mp4   # remote source (--out required)
 python3 broll.py photo.jpg --pieces 6 --dur 4
 python3 broll.py photo.jpg --reuse            # re-render from cached pieces, free
 python3 broll.py photo.jpg --no-drift         # motion variants
@@ -112,6 +113,11 @@ is deliberately dilated by `6 + drift` px, because `key_to_alpha` erodes the pie
 `drift` walks it away from home — without the dilation the piece slides off its own hole and
 exposes a doubled copy of itself. The cost is a visible paper gap around each piece that
 grows with drift. Cam picked drift=6 as the balance.
+
+**Large headline text cannot be removed.** Small incidental writing (papers, laptop screens,
+whiteboards) gets scrambled reliably. Big sharp headline text does not — tested with the text
+rule as a priority-one override AND as a dedicated second image-to-image pass, both no effect,
+with the model claiming success each time. If text is the point of the photo, pick another photo.
 
 **Hallucinated content.** The model will invent detail to fill blurred or low-resolution
 areas — it put a person in an empty window on a 275x183 source. `SCENE_PROMPT` now forbids
