@@ -84,31 +84,37 @@ def paper_colour(scene, bright_cut=170):
     return max(counts, key=counts.get) if counts else (240, 235, 220)
 
 
-def margin_box(scene_path, tol=36):
+def margin_box(scene_path, tol=12, frac=0.995, max_margin=0.15):
     """Find the artwork inside any flat paper margin the model baked in.
 
-    Scene generation occasionally returns the collage inset on a page instead of full
-    bleed. That border is visible in the shot and reads as a flat picture on a table
-    rather than a scene. Detect it and crop it off — applied identically to the scene AND
-    every piece, so registration is preserved.
+    A margin is only a margin if a WHOLE edge row or column is uniform. Sampling a single
+    centre row/column (the first version) mistook a large flat wall in the middle of a
+    scene for a border and cropped away half the picture. Also caps how much can ever be
+    taken off any one side, because a real page margin is thin.
     """
     import numpy as np
     a = np.array(Image.open(scene_path).convert("RGB")).astype(int)
     H, W, _ = a.shape
-    corner = a[3, 3]
+    corner = a[2, 2]
 
-    def run(line):
-        d = np.abs(line - corner).sum(axis=1)
+    def uniform(line):                       # line: (n, 3) pixels along one row/column
+        return (np.abs(line - corner).sum(axis=1) < tol * 3).mean() >= frac
+
+    def count(get, n, cap):
         i = 0
-        while i < len(d) and d[i] < tol:
+        while i < cap and uniform(get(i)):
             i += 1
         return i
 
-    left, top = run(a[H // 2, :]), run(a[:, W // 2])
-    right, bot = run(a[H // 2, ::-1]), run(a[::-1, W // 2])
+    cap_v, cap_h = int(H * max_margin), int(W * max_margin)
+    top = count(lambda i: a[i, :], H, cap_v)
+    bot = count(lambda i: a[H - 1 - i, :], H, cap_v)
+    left = count(lambda i: a[:, i], W, cap_h)
+    right = count(lambda i: a[:, W - 1 - i], W, cap_h)
+
     box = (left, top, W - right, H - bot)
-    if box[2] - box[0] < W * 0.5 or box[3] - box[1] < H * 0.5:
-        return (0, 0, W, H)                       # refuse to crop away the picture
+    if box[2] - box[0] < W * 0.7 or box[3] - box[1] < H * 0.7:
+        return (0, 0, W, H)
     return box
 
 
