@@ -144,6 +144,25 @@ def plate(src, dst, bg="warm cream"):
     return _from_image(src, PLATE_PROMPT.format(style=SCENE_STYLE.format(bg=bg)), dst)
 
 
+ISOLATE_PROMPT = (
+    "From this paper-collage illustration, keep ONLY the {subject} exactly as it appears — "
+    "identical position, identical scale, identical rotation, identical cropping within the "
+    "frame, including its thin white paper border. Replace absolutely everything else in the "
+    "image with flat uniform pure vivid chroma-key green (#00B140). Do not move, resize, "
+    "redraw or re-centre the kept piece. Do not add anything. Output the same image "
+    "dimensions."
+)
+
+
+def isolate(stylized_scene, subject, dst):
+    """Pull one registered cut-out piece off an ALREADY-STYLIZED scene.
+
+    Run against the stylized frame, never the original photo — that is what keeps the piece
+    in perfect register with the scene it will be composited back onto.
+    """
+    return _from_image(stylized_scene, ISOLATE_PROMPT.format(subject=subject), dst)
+
+
 def key_to_alpha(src, dst, sat_cut=60, feather=1):
     """Lift the chroma field to transparency by SATURATION, not by hue.
 
@@ -165,6 +184,14 @@ def key_to_alpha(src, dst, sat_cut=60, feather=1):
     am = am.filter(ImageFilter.MinFilter(5))
     if feather:
         am = am.filter(ImageFilter.GaussianBlur(feather))
+
+    # Erosion alone misses fringe where a piece borders ANOTHER piece rather than the
+    # chroma field. Subjects are pure black-and-white, so any surviving saturated pixel is
+    # residual chroma by definition — flatten those to their own luminance.
+    residual = sat >= 25
+    if residual.any():
+        grey = a.mean(axis=2, keepdims=True).repeat(3, axis=2)
+        a = np.where(residual[..., None], grey, a)
 
     out = Image.fromarray(a.astype(np.uint8)).convert("RGBA")
     out.putalpha(am)

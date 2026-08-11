@@ -15,8 +15,8 @@ import sys
 from PIL import Image, ImageChops, ImageFilter
 
 FPS = 12          # low on purpose — smooth motion kills the paper feel
-BOIL_PX = 2.0     # per-frame positional jitter, PIECES ONLY
-BOIL_DEG = 0.7    # per-frame rotational jitter, PIECES ONLY
+BOIL_PX = 1.0     # per-frame positional jitter, PIECES ONLY (halved: Cam, 2026-08-11)
+BOIL_DEG = 0.35   # per-frame rotational jitter, PIECES ONLY (halved: Cam, 2026-08-11)
 
 # The camera never boils. Jitter belongs to the paper pieces; a shaking camera just makes
 # the push judder. Push is the slow continuous zoom, expressed as fraction of frame over
