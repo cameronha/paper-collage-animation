@@ -19,6 +19,9 @@ python3 broll.py photo.jpg                    # photo in, mp4 out
 python3 broll.py "https://…/photo.jpg" --out shot.mp4   # remote source (--out required)
 python3 broll.py photo.jpg --pieces 6 --dur 4
 python3 broll.py photo.jpg --reuse            # re-render from cached pieces, free
+python3 broll.py --from scenes/shot.png \
+                 --change "same people, now in a kitchen" \
+                 --out kitchen.mp4                # a new scene with the same cast
 python3 broll.py photo.jpg --no-drift         # motion variants
 ```
 
@@ -26,6 +29,49 @@ It stylizes the scene, asks the model to name its own cut-out pieces, isolates a
 each one (skipping any that fail rather than dying), derives the frame size from the
 scene's aspect, and renders. Intermediates live in a `.work` dir beside the output, so
 `--reuse` re-renders with different motion settings at no API cost.
+
+## Variations
+
+`--from` takes a scene you already like and makes another in the same series. Same people,
+same style, different setting. Unlike the normal path this mode is ALLOWED to invent, since
+"add a character" is the point.
+
+Two things it does badly. It copies the original composition unless told hard not to, so the
+prompt demands new poses and new spacing — it obeys on poses and mostly ignores camera angle.
+And it drifts: clothing and faces shift a little each generation. Fine for shots used at
+different points in a video, risky for shots cut back to back.
+
+**The script must come first.** Without knowing what a shot is FOR, a variation will happily
+change the subject — asked for "same man, new room", it turned a man taking out the trash
+into a man making coffee, which killed the point of the video.
+
+## Framing for square crops
+
+Videos often get cropped to square for LinkedIn and X. A square crop keeps the middle 56% of
+a 16:9 frame. To survive it, a scene prompt needs all three of these:
+
+1. the artwork fills the frame edge to edge, full bleed, no inset panel
+2. people and key objects sit in the middle third
+3. the left and right quarters show ordinary room background
+
+Leave out (3) and the model renders empty cream bands instead of background. Leave out (1)
+and it insets the whole picture in a panel.
+
+Note this pulls against piece selection: pushing furniture to the edges makes the piece
+picker more likely to choose furniture.
+
+## One folder per video
+
+```
+~/Claude-files/broll-styles/01-podcast/
+    transcript.txt
+    scenes/   stills
+    clips/    mp4s
+    *.work/   intermediates (keep — makes --reuse free)
+```
+
+Work folders must sit beside the OUTPUT file. `--reuse` looks for `<out-path>.work`, so
+putting the mp4 in `clips/` and the work folder at the root makes it silently regenerate.
 
 ## The pipeline (what the wrapper does, if you need to drive it by hand)
 

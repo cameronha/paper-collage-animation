@@ -160,6 +160,41 @@ def scene(src, dst, bg="warm cream"):
     return _from_image(src, SCENE_PROMPT.format(style=SCENE_STYLE.format(bg=bg)), dst)
 
 
+VARY_PROMPT = (
+    "This is an existing paper-collage illustration in a locked house style. Produce a NEW "
+    "image that is unmistakably from the same series. "
+    "KEEP IDENTICAL: the visual style in every respect — high-contrast black-and-white "
+    "halftone cut-outs, clean hard scissor-cut edges with a thin white paper border and a "
+    "real paper drop shadow, visible halftone dots and print grain, flat scanned lighting, "
+    "no gradients, no photorealism, no 3D, no CGI, everything on a flat uniform warm cream "
+    "paper background, full bleed to all four edges. "
+    "KEEP THE SAME PEOPLE: any person who appears in both images must be recognisably the "
+    "same individual — same face, same hair, same build, same clothing — rendered the same "
+    "way. Faces stay exempt from the halftone screen: facial skin in smooth continuous tone "
+    "with eyes, nose and mouth resolving cleanly. Never blank, blur or erase a face. "
+    "CHANGE THE MOMENT: this is a DIFFERENT moment in time, not the same photograph with a "
+    "new backdrop. Give the people NEW poses, NEW body positions, NEW spacing and a NEW "
+    "arrangement in the frame, doing something that makes sense in the new setting. Vary the "
+    "camera angle and distance too. Do NOT copy the original composition, do NOT keep people "
+    "standing in the same spots holding the same things at the same angles — identical poses "
+    "against a changed background look like a cut-out pasted onto a new photo, which is "
+    "exactly what this must not look like. Same cast, different scene. "
+    "NO READABLE TEXT ANYWHERE: any writing becomes wavy scribbles, dashes or grey blocks, "
+    "no matter how large or prominent. "
+    "THE CHANGE TO MAKE: {change}"
+)
+
+
+def vary(stylized_scene, change, dst):
+    """Make a new scene in the same series as an existing one.
+
+    Unlike scene(), this mode is ALLOWED to invent — "add a character" is the point. The
+    faithfulness clauses that keep scene() honest would forbid exactly what's wanted here,
+    so this prompt drops them and leans on style and character continuity instead.
+    """
+    return _from_image(stylized_scene, VARY_PROMPT.format(change=change), dst)
+
+
 ISOLATE_PROMPT = (
     "From this paper-collage illustration, keep ONLY the {subject} exactly as it appears — "
     "identical position, identical scale, identical rotation, identical cropping within the "
@@ -215,7 +250,7 @@ def key_to_alpha(src, dst, sat_cut=60, feather=1):
     return dst
 
 
-MODES = {"scene": scene, "isolate": None}
+MODES = {"scene": scene, "vary": vary}
 
 if __name__ == "__main__":
     # scene is the only mode worth a CLI; isolate needs a scene + a description.

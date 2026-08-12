@@ -121,7 +121,12 @@ def frame_size(scene_path, height=1080):
 
 def main():
     ap = argparse.ArgumentParser(description="Photo -> stop-motion B-roll clip.")
-    ap.add_argument("photo")
+    ap.add_argument("photo", nargs="?",
+                    help="source photo or URL; omit when using --from")
+    ap.add_argument("--from", dest="from_scene", default=None,
+                    help="an existing stylized scene.png to make a variant of")
+    ap.add_argument("--change", default=None,
+                    help='what to change, e.g. "same people, now in a kitchen"')
     ap.add_argument("--out", default=None, help="output mp4 (default: alongside the photo)")
     ap.add_argument("--pieces", type=int, default=5)
     ap.add_argument("--dur", type=float, default=5.0)
@@ -132,7 +137,14 @@ def main():
                     help="reuse an existing work dir instead of regenerating (free)")
     a = ap.parse_args()
 
-    is_url = a.photo.startswith(("http://", "https://"))
+    if a.from_scene:
+        if not a.change:
+            raise SystemExit("--from needs --change describing what to alter")
+        if not a.out:
+            raise SystemExit("--out is required with --from")
+        a.photo = a.from_scene          # only used for naming from here on
+
+    is_url = bool(a.photo) and a.photo.startswith(("http://", "https://"))
     if is_url and not a.out:
         raise SystemExit("--out is required when the source is a URL")
     stem = os.path.splitext(os.path.basename(a.photo.split("?")[0]))[0] or "downloaded"
@@ -148,6 +160,10 @@ def main():
 
     if a.reuse and os.path.exists(scene):
         print(f"[1/4] reusing {scene}")
+    elif a.from_scene:
+        print(f"[1/4] varying {os.path.basename(a.from_scene)}")
+        print(f"       change: {a.change}")
+        S.vary(a.from_scene, a.change, scene)
     else:
         print(f"[1/4] stylizing {os.path.basename(a.photo)} ...")
         S.scene(a.photo, scene)
