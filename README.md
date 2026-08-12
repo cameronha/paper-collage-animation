@@ -10,14 +10,16 @@ the shot comes from the photo. Motion comes from the scene itself.
 
 Static previews can't show what this actually does — the point is the motion.
 
-| Source | Result |
+All three of these started from a WRITTEN DESCRIPTION, not a photo — `stylize.py` was
+called directly with a text prompt, the normal `photo.jpg` entry point was not used. The
+left column is that first generated still, not a "source" in the usual sense. Feeding in
+your own photo instead produces the same kind of result — see [Variations](#variations).
+
+| Generated still (from text, no photo) | Result |
 |---|---|
 | <img src="examples/lock-source.png" width="360"> | <img src="examples/lock-demo.gif" width="360"> |
 | <img src="examples/laptop-source.png" width="360"> | <img src="examples/laptop-demo.gif" width="360"> |
 | <img src="examples/interview-source.png" width="360"> | <img src="examples/interview-demo.gif" width="360"> |
-
-All three examples above started from a text description, not a real photo — the pipeline
-works the same way for a photo you supply, see [Variations](#variations) below.
 
 ## Setup
 
