@@ -6,10 +6,23 @@ wasn't in the source photo.
 **Rule:** never insert generated elements (stock mics, megaphones, props). Every piece in
 the shot comes from the photo. Motion comes from the scene itself.
 
+## Examples
+
+Static previews can't show what this actually does — the point is the motion.
+
+| Source | Result |
+|---|---|
+| <img src="examples/lock-source.png" width="360"> | <img src="examples/lock-demo.gif" width="360"> |
+| <img src="examples/laptop-source.png" width="360"> | <img src="examples/laptop-demo.gif" width="360"> |
+| <img src="examples/interview-source.png" width="360"> | <img src="examples/interview-demo.gif" width="360"> |
+
+All three examples above started from a text description, not a real photo — the pipeline
+works the same way for a photo you supply, see [Variations](#variations) below.
+
 ## Setup
 
 - `GEMINI_API_KEY` in `~/.config/keys/.env` (its own Google Cloud project, billing on —
-  image generation is not on the free tier, ~$0.04/image)
+  image generation is not on the free tier, ~$0.07/image, ~$0.40 for a finished clip)
 - `ffmpeg`, `python3` with `pillow`, `numpy`, `certifi`
 
 ## One command

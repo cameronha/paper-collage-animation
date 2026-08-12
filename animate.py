@@ -223,7 +223,7 @@ class Piece:
 
 def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
                   push=PUSH_DEFAULT, amp=1.0, step=2,
-                  assemble=1.0, stagger=0.14, drift=6.0, autocrop=True, bg="E98F58"):
+                  assemble=1.0, stagger=0.30, entry_dur=0.8, drift=6.0, autocrop=True, bg="E98F58"):
     """Steady eased push on the scene; every cut-out piece twitches independently on top.
 
     The knocked-out holes are dilated to cover the drift, so a piece never slides off its
@@ -267,7 +267,7 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
             lambda v: 255 if v > 16 else 0)
         scene = Image.composite(Image.new("RGBA", scene.size, ground + (255,)), scene, union)
         for i, p in enumerate(pieces):
-            p.set_entry(i * stagger, dur_in=0.5)
+            p.set_entry(i * stagger, dur_in=entry_dur)
 
     if drift:
         for p in pieces:

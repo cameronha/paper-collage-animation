@@ -136,6 +136,10 @@ def main():
     ap.add_argument("--pieces", type=int, default=5)
     ap.add_argument("--dur", type=float, default=5.0)
     ap.add_argument("--height", type=int, default=1080)
+    ap.add_argument("--stagger", type=float, default=0.30,
+                    help="seconds between each piece starting its entry (default 0.30)")
+    ap.add_argument("--entry-dur", type=float, default=0.8,
+                    help="seconds each piece takes to land (default 0.8, slower/more dramatic)")
     ap.add_argument("--bg", default="E98F58",
                     help="hex colour for the paper ground. Default E98F58 (brand orange). "
                          "Others on brand: EC5C6B, 8CBDDC. Use 'none' for the raw cream. "
@@ -222,7 +226,7 @@ def main():
     animate.render_pieces(
         scene, pieces, out, dur=a.dur, W=W, H=H, amp=0.5, step=2,
         assemble=0.0 if a.no_assemble else 1.0,
-        drift=0.0 if a.no_drift else 6.0,
+        drift=0.0 if a.no_drift else 6.0, stagger=a.stagger, entry_dur=a.entry_dur,
         bg=None if str(a.bg).lower() == "none" else a.bg)
 
     print(f"\n{out}")
