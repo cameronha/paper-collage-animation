@@ -34,7 +34,12 @@ PLAN_PROMPT = (
     "person, a laptop, a screen, a plant) over parts of them, and pieces that are clearly "
     "separated from their neighbours. For each, give a short noun phrase that identifies "
     "it unambiguously by position and appearance, e.g. 'seated man in the checked shirt "
-    "in the lower left'. Reply with ONLY a JSON array of strings."
+    "in the lower left'. "
+    "Each piece must be SEPARABLE: do not choose a piece that overlaps or contains part of "
+    "another piece you have chosen. A table that people are sitting behind, or a desk their "
+    "arms rest on, cannot be cut out cleanly — it drags ghosts of them along with it. Prefer "
+    "whole figures and objects that stand clear of everything else. "
+    "Reply with ONLY a JSON array of strings."
 )
 
 
@@ -131,8 +136,10 @@ def main():
     ap.add_argument("--pieces", type=int, default=5)
     ap.add_argument("--dur", type=float, default=5.0)
     ap.add_argument("--height", type=int, default=1080)
-    ap.add_argument("--bg", default=None,
-                    help="hex colour for the paper ground, e.g. E98F58. Free, applied locally.")
+    ap.add_argument("--bg", default="E98F58",
+                    help="hex colour for the paper ground. Default E98F58 (brand orange). "
+                         "Others on brand: EC5C6B, 8CBDDC. Use 'none' for the raw cream. "
+                         "Applied locally at render time, so it is free.")
     ap.add_argument("--no-assemble", action="store_true")
     ap.add_argument("--no-drift", action="store_true")
     ap.add_argument("--reuse", action="store_true",
@@ -215,7 +222,8 @@ def main():
     animate.render_pieces(
         scene, pieces, out, dur=a.dur, W=W, H=H, amp=0.5, step=2,
         assemble=0.0 if a.no_assemble else 1.0,
-        drift=0.0 if a.no_drift else 6.0, bg=a.bg)
+        drift=0.0 if a.no_drift else 6.0,
+        bg=None if str(a.bg).lower() == "none" else a.bg)
 
     print(f"\n{out}")
     print(f"work dir: {work}  (re-run with --reuse to re-render for free)")

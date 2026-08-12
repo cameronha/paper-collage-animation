@@ -223,7 +223,7 @@ class Piece:
 
 def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
                   push=PUSH_DEFAULT, amp=1.0, step=2,
-                  assemble=1.0, stagger=0.14, drift=6.0, autocrop=True, bg=None):
+                  assemble=1.0, stagger=0.14, drift=6.0, autocrop=True, bg="E98F58"):
     """Steady eased push on the scene; every cut-out piece twitches independently on top.
 
     The knocked-out holes are dilated to cover the drift, so a piece never slides off its
