@@ -19,6 +19,8 @@ python3 broll.py photo.jpg                    # photo in, mp4 out
 python3 broll.py "https://…/photo.jpg" --out shot.mp4   # remote source (--out required)
 python3 broll.py photo.jpg --pieces 6 --dur 4
 python3 broll.py photo.jpg --reuse            # re-render from cached pieces, free
+python3 broll.py photo.jpg --work old.work \
+                 --out orange.mp4 --bg E98F58 --reuse   # colour variant, free
 python3 broll.py --from scenes/shot.png \
                  --change "same people, now in a kitchen" \
                  --out kitchen.mp4                # a new scene with the same cast
@@ -29,6 +31,25 @@ It stylizes the scene, asks the model to name its own cut-out pieces, isolates a
 each one (skipping any that fail rather than dying), derives the frame size from the
 scene's aspect, and renders. Intermediates live in a `.work` dir beside the output, so
 `--reuse` re-renders with different motion settings at no API cost.
+
+## Background colour
+
+`--bg E98F58` swaps the paper ground for any hex colour. This happens locally at render
+time and costs nothing — do NOT regenerate a scene to change its colour.
+
+It works because the subjects are pure black and white, so every pixel carrying saturation
+is ground. Luminance is preserved, so paper grain and halftone texture survive. Grey props
+stay grey, which reads as cut paper on a coloured page.
+
+Cream is a weak default: it has almost no contrast with the white cut-out borders, which
+are the signature of the style. Cam's brand colours are `E98F58`, `EC5C6B`, `8CBDDC`.
+
+## Reusing a generation
+
+`--work <dir>` points at an existing `.work` folder instead of one named after `--out`.
+That is how you render variants — different colour, length or motion — off one paid
+generation. `--reuse` now refuses to run if the work folder has no scene in it, because
+silently regenerating and charging for it happened twice in one afternoon.
 
 ## Variations
 

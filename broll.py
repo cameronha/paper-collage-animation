@@ -131,10 +131,15 @@ def main():
     ap.add_argument("--pieces", type=int, default=5)
     ap.add_argument("--dur", type=float, default=5.0)
     ap.add_argument("--height", type=int, default=1080)
+    ap.add_argument("--bg", default=None,
+                    help="hex colour for the paper ground, e.g. E98F58. Free, applied locally.")
     ap.add_argument("--no-assemble", action="store_true")
     ap.add_argument("--no-drift", action="store_true")
     ap.add_argument("--reuse", action="store_true",
                     help="reuse an existing work dir instead of regenerating (free)")
+    ap.add_argument("--work", default=None,
+                    help="use THIS work dir instead of one named after --out. Lets you render "
+                         "variants (different --bg, --dur, --drift) off one paid generation.")
     a = ap.parse_args()
 
     if a.from_scene:
@@ -149,7 +154,13 @@ def main():
         raise SystemExit("--out is required when the source is a URL")
     stem = os.path.splitext(os.path.basename(a.photo.split("?")[0]))[0] or "downloaded"
     out = a.out or os.path.join(os.path.dirname(os.path.abspath(a.photo)), f"{stem}-broll.mp4")
-    work = os.path.splitext(out)[0] + ".work"
+    work = a.work or os.path.splitext(out)[0] + ".work"
+    # Guard: --reuse with a work dir that does not exist silently regenerates and charges
+    # for it. That has bitten twice. Fail loudly instead.
+    if a.reuse and not os.path.exists(os.path.join(work, "scene.png")):
+        raise SystemExit(
+            f"--reuse was given but there is no scene at {work}/scene.png\n"
+            f"    Point --work at an existing .work dir, or drop --reuse to pay for a new one.")
     os.makedirs(os.path.join(work, "iso"), exist_ok=True)
     os.makedirs(os.path.join(work, "pieces"), exist_ok=True)
     scene = os.path.join(work, "scene.png")
@@ -204,7 +215,7 @@ def main():
     animate.render_pieces(
         scene, pieces, out, dur=a.dur, W=W, H=H, amp=0.5, step=2,
         assemble=0.0 if a.no_assemble else 1.0,
-        drift=0.0 if a.no_drift else 6.0)
+        drift=0.0 if a.no_drift else 6.0, bg=a.bg)
 
     print(f"\n{out}")
     print(f"work dir: {work}  (re-run with --reuse to re-render for free)")

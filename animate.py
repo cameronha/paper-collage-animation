@@ -31,6 +31,34 @@ def ease_back(t):
 
 
 
+
+def recolour_ground(im, rgb, sat_cut=14):
+    """Swap the flat paper ground for another colour. Local and free — no generation.
+
+    Subjects in this style are pure black and white, so any pixel carrying saturation is
+    ground. Luminance is preserved, which keeps the paper grain and halftone texture
+    through the swap. Grey props (shelves, curtains) stay grey on purpose: the result reads
+    as cut paper on a coloured page rather than a fully repainted room.
+    """
+    import numpy as np
+    a = np.array(im.convert("RGB")).astype(np.float32)
+    sat = a.max(axis=2) - a.min(axis=2)
+    ground = sat >= sat_cut
+    lum = a.mean(axis=2, keepdims=True) / 255.0
+    new = np.array(rgb, dtype=np.float32).reshape(1, 1, 3) * (0.55 + 0.45 * lum)
+    out = np.where(ground[..., None], new, a).clip(0, 255).astype(np.uint8)
+    res = Image.fromarray(out)
+    if im.mode == "RGBA":
+        res = res.convert("RGBA")
+        res.putalpha(im.getchannel("A"))
+    return res
+
+
+def parse_hex(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
 def paper_colour(scene, bright_cut=170):
     """The paper stock a scene is printed on, for filling knocked-out piece regions.
 
@@ -195,7 +223,7 @@ class Piece:
 
 def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
                   push=PUSH_DEFAULT, amp=1.0, step=2,
-                  assemble=1.0, stagger=0.14, drift=6.0, autocrop=True):
+                  assemble=1.0, stagger=0.14, drift=6.0, autocrop=True, bg=None):
     """Steady eased push on the scene; every cut-out piece twitches independently on top.
 
     The knocked-out holes are dilated to cover the drift, so a piece never slides off its
@@ -203,6 +231,13 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
     """
     scene = Image.open(scene_path).convert("RGBA")
     pieces = [Piece(p, amp=amp, seed=i) for i, p in enumerate(piece_paths)]
+
+    if bg:
+        rgb = parse_hex(bg) if isinstance(bg, str) else bg
+        scene = recolour_ground(scene, rgb)
+        pieces = [Piece(p, amp=amp, seed=i) for i, p in enumerate(piece_paths)]
+        for p in pieces:
+            p.img = recolour_ground(p.img, rgb)
 
     if autocrop:
         box = margin_box(scene_path)
