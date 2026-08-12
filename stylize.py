@@ -169,6 +169,55 @@ def scene(src, dst, bg="warm cream"):
     return _from_image(src, SCENE_PROMPT.format(style=SCENE_STYLE.format(bg=bg)), dst)
 
 
+TEXT_SCENE_PROMPT = (
+    # Same two hard-won rules as SCENE_PROMPT's text/seam clauses, restated for a call
+    # with no input image to anchor against. Text-to-image drifts toward split-panel
+    # compositions more often than image-to-image does — this bit us twice (an interview
+    # two-shot, a city hall establishing shot) before it was ever written down here.
+    "RULE ONE, OVERRIDES EVERYTHING BELOW: this image must contain NO READABLE TEXT. "
+    "Replace every piece of writing with abstract illegible marks — wavy lines, dashes and "
+    "grey blocks. This applies to every surface without exception and no matter how large "
+    "or prominent the text would normally be. "
+    "RULE TWO: this must be ONE SINGLE CONTINUOUS PHOTOGRAPH, shot from one camera "
+    "position. Do not split the image into two panels. Do not create a diptych. Do not put "
+    "a seam, border, or dividing line anywhere in the frame. "
+    "Now, with both rules absolute: create a photograph of the scene described below, "
+    "rendered as a {style} "
+    "COMPOSITION: the artwork fills the whole frame edge to edge, full bleed, with no page "
+    "margin and no inset panel. Place the people and the important objects in the MIDDLE "
+    "THIRD of the frame, so a square crop taken from the centre keeps them whole. The far "
+    "left and far right show ordinary background, never empty space, and nothing the "
+    "viewer needs to see. "
+    "DO NOT ADD SUBJECTS: the only people, faces, and named objects in this image are the "
+    "ones described below. Never invent an additional person, face, or figure to fill "
+    "empty space. If the description is a tight or close-up subject, fill the rest of the "
+    "frame with plain scenery, texture, or blurred depth-of-field — never with a person, "
+    "face, or object that was not asked for. "
+    "FACES: exempt faces from the halftone screen. Render the skin of each face in smooth "
+    "continuous tone with clean unbroken edges and no dot pattern, so the eyes, nose and "
+    "mouth resolve cleanly even on a small face. This exemption applies to FACIAL SKIN "
+    "ONLY — hair, clothing, hands, bodies, furniture and every other surface keep the full "
+    "halftone dot pattern and print grain. Faces must be present and complete, never "
+    "blanked, blurred, masked or erased. "
+    "THE SCENE TO DEPICT, AND NOTHING ELSE: {description}"
+)
+
+
+def text_scene(description, dst, bg="warm cream"):
+    """Generate a scene from a written description — no source photo.
+
+    Shares scene()'s composition, face, and text rules, so a text-generated scene behaves
+    identically downstream (isolate, key, animate) to a photo-sourced one. Tuned for a
+    normal subject — a person, an object, two people talking — where middle-third framing
+    is the right safety default. NOT tuned for a wide establishing shot (a building, a
+    skyline): that wants the subject pulled back and centred instead, which is a different,
+    still-manual prompt pattern (see project-broll memory, "wide establishing shots").
+    """
+    prompt = TEXT_SCENE_PROMPT.format(
+        style=SCENE_STYLE.format(bg=bg), description=description)
+    return _call([{"text": prompt}], dst)
+
+
 VARY_PROMPT = (
     "This is an existing paper-collage illustration in a locked house style. Produce a NEW "
     "image that is unmistakably from the same series. "

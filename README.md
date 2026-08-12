@@ -32,6 +32,8 @@ your own photo instead produces the same kind of result — see [Variations](#va
 ```bash
 python3 broll.py photo.jpg                    # photo in, mp4 out
 python3 broll.py "https://…/photo.jpg" --out shot.mp4   # remote source (--out required)
+python3 broll.py --text "a hand closing an old padlock" \
+                 --out lock.mp4                          # generate from a description
 python3 broll.py photo.jpg --pieces 6 --dur 4
 python3 broll.py photo.jpg --reuse            # re-render from cached pieces, free
 python3 broll.py photo.jpg --work old.work \
@@ -65,6 +67,23 @@ are the signature of the style. Cam's brand colours are `E98F58`, `EC5C6B`, `8CB
 That is how you render variants — different colour, length or motion — off one paid
 generation. `--reuse` now refuses to run if the work folder has no scene in it, because
 silently regenerating and charging for it happened twice in one afternoon.
+
+## Generating from a description instead of a photo
+
+`--text "a description"` skips the photo entirely and generates the scene from words.
+Requires `--out`. Shares the same style, face, and no-text rules as the photo path, so a
+text-generated scene behaves identically downstream — pieces get picked, isolated, and
+animated the same way.
+
+Tuned for a normal subject (a person, an object, two people). NOT tuned for a wide
+establishing shot (a building, a skyline) — those want the subject pulled back and
+centred, a different composition pattern that isn't built into `--text` yet.
+
+One bug found and fixed the first time this shipped: a tight close-up subject (a hand on a
+padlock) doesn't naturally fill a 16:9 frame, and the model filled the empty space with an
+invented person nobody asked for. The prompt now explicitly forbids adding any subject
+beyond what the description names, and tells it to fill empty space with plain scenery
+instead.
 
 ## Variations
 

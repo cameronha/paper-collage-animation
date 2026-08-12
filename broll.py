@@ -127,11 +127,15 @@ def frame_size(scene_path, height=1080):
 def main():
     ap = argparse.ArgumentParser(description="Photo -> stop-motion B-roll clip.")
     ap.add_argument("photo", nargs="?",
-                    help="source photo or URL; omit when using --from")
+                    help="source photo or URL; omit when using --from or --text")
     ap.add_argument("--from", dest="from_scene", default=None,
                     help="an existing stylized scene.png to make a variant of")
     ap.add_argument("--change", default=None,
                     help='what to change, e.g. "same people, now in a kitchen"')
+    ap.add_argument("--text", default=None,
+                    help='generate the scene from a description instead of a photo, e.g. '
+                         '--text "a hand closing an old padlock, close up". Requires --out. '
+                         "Tuned for a normal subject, not a wide establishing shot.")
     ap.add_argument("--out", default=None, help="output mp4 (default: alongside the photo)")
     ap.add_argument("--pieces", type=int, default=5)
     ap.add_argument("--dur", type=float, default=5.0)
@@ -153,18 +157,29 @@ def main():
                          "variants (different --bg, --dur, --drift) off one paid generation.")
     a = ap.parse_args()
 
+    if a.from_scene and a.text:
+        raise SystemExit("use --from or --text, not both")
+
     if a.from_scene:
         if not a.change:
             raise SystemExit("--from needs --change describing what to alter")
         if not a.out:
             raise SystemExit("--out is required with --from")
         a.photo = a.from_scene          # only used for naming from here on
+    elif a.text:
+        if not a.out:
+            raise SystemExit("--out is required with --text")
+    elif not a.photo:
+        raise SystemExit("give a photo path, a URL, or use --from / --text")
 
     is_url = bool(a.photo) and a.photo.startswith(("http://", "https://"))
     if is_url and not a.out:
         raise SystemExit("--out is required when the source is a URL")
-    stem = os.path.splitext(os.path.basename(a.photo.split("?")[0]))[0] or "downloaded"
-    out = a.out or os.path.join(os.path.dirname(os.path.abspath(a.photo)), f"{stem}-broll.mp4")
+    if a.text:
+        out = a.out
+    else:
+        stem = os.path.splitext(os.path.basename(a.photo.split("?")[0]))[0] or "downloaded"
+        out = a.out or os.path.join(os.path.dirname(os.path.abspath(a.photo)), f"{stem}-broll.mp4")
     work = a.work or os.path.splitext(out)[0] + ".work"
     # Guard: --reuse with a work dir that does not exist silently regenerates and charges
     # for it. That has bitten twice. Fail loudly instead.
@@ -186,6 +201,10 @@ def main():
         print(f"[1/4] varying {os.path.basename(a.from_scene)}")
         print(f"       change: {a.change}")
         S.vary(a.from_scene, a.change, scene)
+    elif a.text:
+        print(f"[1/4] generating scene from text ...")
+        print(f"       {a.text}")
+        S.text_scene(a.text, scene)
     else:
         print(f"[1/4] stylizing {os.path.basename(a.photo)} ...")
         S.scene(a.photo, scene)
