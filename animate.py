@@ -232,12 +232,13 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
     scene = Image.open(scene_path).convert("RGBA")
     pieces = [Piece(p, amp=amp, seed=i) for i, p in enumerate(piece_paths)]
 
+    bg_rgb = None
     if bg:
-        rgb = parse_hex(bg) if isinstance(bg, str) else bg
-        scene = recolour_ground(scene, rgb)
-        pieces = [Piece(p, amp=amp, seed=i) for i, p in enumerate(piece_paths)]
-        for p in pieces:
-            p.img = recolour_ground(p.img, rgb)
+        bg_rgb = parse_hex(bg) if isinstance(bg, str) else bg
+        # Only the SCENE gets recoloured. NEVER the pieces. They are black-and-white
+        # subjects on transparency, and their subjects carry just enough warmth to cross
+        # the saturation threshold and get repainted — which turned the people orange.
+        scene = recolour_ground(scene, bg_rgb)
 
     if autocrop:
         box = margin_box(scene_path)
@@ -253,7 +254,7 @@ def render_pieces(scene_path, piece_paths, out, dur=4.0, W=1920, H=1080,
         # A piece cannot fly in while a copy of it sits in the base. Knock every piece's
         # region out of the base to flat paper stock, then let the pieces rebuild the
         # scene onto it. Fill colour = the scene's most common colour (the paper ground).
-        ground = paper_colour(scene)
+        ground = bg_rgb or paper_colour(scene)
         union = Image.new("L", scene.size, 0)
         for p in pieces:
             union = ImageChops.lighter(union, p.img.getchannel("A"))
