@@ -1,4 +1,6 @@
-# broll — stop-motion B-roll from a description
+# paper-collage-animation
+
+Stop-motion B-roll from a description.
 
 Describe a scene, get a paper-collage stop-motion clip. No photo required — though you can
 feed one in instead if you want the tool to work from something real.
@@ -224,7 +226,7 @@ Everything above runs through `broll.py`. This is what it's doing underneath, if
 need to drive it manually.
 
 ```bash
-cd ~/Coding/broll
+cd ~/Coding/paper-collage-animation
 
 # 1. Stylize the whole scene (background kept, everything as layered cut-outs)
 python3 stylize.py scene ~/path/to/photo.jpg out/scene.png
