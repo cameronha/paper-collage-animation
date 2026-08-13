@@ -1,21 +1,36 @@
-# broll — stop-motion B-roll from your own photos
+# broll — stop-motion B-roll from a description
 
-Turn a photo into a paper-collage stop-motion clip. Nothing is added to the frame that
-wasn't in the source photo.
+Describe a scene, get a paper-collage stop-motion clip. No photo required — though you can
+feed one in instead if you want the tool to work from something real.
 
-**Rule:** never insert generated elements (stock mics, megaphones, props). Every piece in
-the shot comes from the photo. Motion comes from the scene itself.
+**Rule:** nothing appears in the frame beyond what you specify. No stock mics, megaphones,
+or invented props filling space that wasn't asked for. Motion comes from the scene itself.
+
+## Contents
+
+- [Examples](#examples)
+- [Setup](#setup)
+- [Quick start](#quick-start)
+- [Generating from a description](#generating-from-a-description)
+- [Using a photo instead](#using-a-photo-instead)
+- [Background colour](#background-colour)
+- [Reusing a generation](#reusing-a-generation)
+- [Variations](#variations)
+- [Framing for square crops](#framing-for-square-crops)
+- [One folder per video](#one-folder-per-video)
+- [Settings that are dialled in](#settings-that-are-dialled-in)
+- [Gotchas](#gotchas)
+- [v2: the shot has an event](#v2-the-shot-has-an-event)
+- [Billing](#billing)
+- [The pipeline by hand](#the-pipeline-by-hand)
 
 ## Examples
 
-Static previews can't show what this actually does — the point is the motion.
+Static previews can't show what this actually does — the point is the motion. All three
+below were generated from a written description, no photo involved: `--text "..."` in,
+still + clip out.
 
-All three of these started from a WRITTEN DESCRIPTION, not a photo — `stylize.py` was
-called directly with a text prompt, the normal `photo.jpg` entry point was not used. The
-left column is that first generated still, not a "source" in the usual sense. Feeding in
-your own photo instead produces the same kind of result — see [Variations](#variations).
-
-| Generated still (from text, no photo) | Result |
+| Generated still | Result |
 |---|---|
 | <img src="examples/lock-source.png" width="360"> | <img src="examples/lock-demo.gif" width="360"> |
 | <img src="examples/laptop-source.png" width="360"> | <img src="examples/laptop-demo.gif" width="360"> |
@@ -23,31 +38,51 @@ your own photo instead produces the same kind of result — see [Variations](#va
 
 ## Setup
 
-- `GEMINI_API_KEY` in `~/.config/keys/.env` (its own Google Cloud project, billing on —
-  image generation is not on the free tier, ~$0.07/image, ~$0.40 for a finished clip)
+- `GEMINI_API_KEY` in `~/.config/keys/.env` (its own Google Cloud project, billing on).
+  Uses Google's Gemini image model (`gemini-3.1-flash-image`) — not on the free tier,
+  ~$0.07/image, ~$0.40 for a finished clip.
 - `ffmpeg`, `python3` with `pillow`, `numpy`, `certifi`
 
-## One command
+## Quick start
 
 ```bash
-python3 broll.py photo.jpg                    # photo in, mp4 out
-python3 broll.py "https://…/photo.jpg" --out shot.mp4   # remote source (--out required)
-python3 broll.py --text "a hand closing an old padlock" \
-                 --out lock.mp4                          # generate from a description
-python3 broll.py photo.jpg --pieces 6 --dur 4
-python3 broll.py photo.jpg --reuse            # re-render from cached pieces, free
-python3 broll.py photo.jpg --work old.work \
-                 --out orange.mp4 --bg E98F58 --reuse   # colour variant, free
-python3 broll.py --from scenes/shot.png \
-                 --change "same people, now in a kitchen" \
-                 --out kitchen.mp4                # a new scene with the same cast
-python3 broll.py photo.jpg --no-drift         # motion variants
+python3 broll.py --text "a hand closing an old padlock" --out lock.mp4
+python3 broll.py --text "a hand closing an old padlock" --out lock.mp4 --reuse   # free re-render
 ```
 
 It stylizes the scene, asks the model to name its own cut-out pieces, isolates and keys
 each one (skipping any that fail rather than dying), derives the frame size from the
 scene's aspect, and renders. Intermediates live in a `.work` dir beside the output, so
-`--reuse` re-renders with different motion settings at no API cost.
+`--reuse` re-renders with different motion or colour settings at no API cost.
+
+## Generating from a description
+
+`--text "a description"` is the default path. Requires `--out`. The prompt is tuned for a
+normal subject — a person, an object, two people.
+
+NOT tuned for a wide establishing shot (a building, a skyline) — those want the subject
+pulled back and centred, a different composition pattern that isn't built into `--text` yet.
+
+One bug found and fixed the first time this shipped: a tight close-up subject (a hand on a
+padlock) doesn't naturally fill a 16:9 frame, and the model filled the empty space with an
+invented person nobody asked for. The prompt now explicitly forbids adding any subject
+beyond what the description names, and tells it to fill empty space with plain scenery
+instead.
+
+## Using a photo instead
+
+```bash
+python3 broll.py photo.jpg                              # photo in, mp4 out
+python3 broll.py "https://…/photo.jpg" --out shot.mp4    # remote source (--out required)
+python3 broll.py photo.jpg --pieces 6 --dur 4
+python3 broll.py photo.jpg --reuse                       # re-render from cached pieces, free
+```
+
+Same pipeline downstream — pieces get picked, isolated, and animated identically whether
+the scene came from a description or a photo. The difference is only in how the first
+stylized still gets made. A photo source also carries the stronger version of the rule
+above: every piece in the shot must trace back to something in the photo, not just to
+what you asked for.
 
 ## Background colour
 
@@ -65,31 +100,24 @@ are the signature of the style. Cam's brand colours are `E98F58`, `EC5C6B`, `8CB
 
 `--work <dir>` points at an existing `.work` folder instead of one named after `--out`.
 That is how you render variants — different colour, length or motion — off one paid
-generation. `--reuse` now refuses to run if the work folder has no scene in it, because
+generation. `--reuse` refuses to run if the work folder has no scene in it, because
 silently regenerating and charging for it happened twice in one afternoon.
 
-## Generating from a description instead of a photo
-
-`--text "a description"` skips the photo entirely and generates the scene from words.
-Requires `--out`. Shares the same style, face, and no-text rules as the photo path, so a
-text-generated scene behaves identically downstream — pieces get picked, isolated, and
-animated the same way.
-
-Tuned for a normal subject (a person, an object, two people). NOT tuned for a wide
-establishing shot (a building, a skyline) — those want the subject pulled back and
-centred, a different composition pattern that isn't built into `--text` yet.
-
-One bug found and fixed the first time this shipped: a tight close-up subject (a hand on a
-padlock) doesn't naturally fill a 16:9 frame, and the model filled the empty space with an
-invented person nobody asked for. The prompt now explicitly forbids adding any subject
-beyond what the description names, and tells it to fill empty space with plain scenery
-instead.
+```bash
+python3 broll.py --work old.work --out orange.mp4 --bg E98F58 --reuse   # colour variant, free
+python3 broll.py photo.jpg --no-drift                                    # motion variant
+```
 
 ## Variations
 
 `--from` takes a scene you already like and makes another in the same series. Same people,
-same style, different setting. Unlike the normal path this mode is ALLOWED to invent, since
-"add a character" is the point.
+same style, different setting.
+
+```bash
+python3 broll.py --from scenes/shot.png --change "same people, now in a kitchen" --out kitchen.mp4
+```
+
+Unlike the normal path this mode is ALLOWED to invent, since "add a character" is the point.
 
 Two things it does badly. It copies the original composition unless told hard not to, so the
 prompt demands new poses and new spacing — it obeys on poses and mostly ignores camera angle.
@@ -128,7 +156,72 @@ picker more likely to choose furniture.
 Work folders must sit beside the OUTPUT file. `--reuse` looks for `<out-path>.work`, so
 putting the mp4 in `clips/` and the work folder at the root makes it silently regenerate.
 
-## The pipeline (what the wrapper does, if you need to drive it by hand)
+## Settings that are dialled in (don't change without a reason)
+
+| Setting | Value | Why |
+|---|---|---|
+| `FPS` | 12 | Low on purpose. Smooth motion kills the paper feel. |
+| `step` | 2 | Shoot on twos. Each pose holds 2 frames. Per-frame re-rolls read as film grain, not animation. |
+| `amp` | 0.5 | Jitter distance. ~0.5px / 0.175°. More than this reads as agitated. |
+| `PUSH_DEFAULT` | 0.065 | Slow eased zoom. The camera never jitters — only the pieces do. |
+| pieces | ~5 | 2 is too subtle. |
+| `assemble` | 1.0 | Pieces land over the first ~1.3s onto a knocked-out paper ground. Gives the shot an event. |
+| `drift` | 6 | Slow travel on top of the boil. Higher looks livelier but widens the paper gap (see below). |
+
+Distance (`BOIL_PX`/`BOIL_DEG` × `amp`) and rate (`FPS`, `step`) are independent knobs.
+
+## Gotchas
+
+- Key by **saturation**, not hue. The model returns ~`#04A943` for a requested `#00B140`
+  and print grain spreads it further. Subjects are pure B&W, so `max(rgb)-min(rgb)` is an
+  exact separator.
+- Erode the alpha before feathering, and neutralise any surviving saturated pixel, or you
+  get a green fringe where one piece borders another.
+- Scale pieces to the **frame's** zoomed size, never their own dimensions.
+- Rotate each piece about its own alpha-bbox centre, not the canvas centre.
+- `blur_under` is off. It made a worse halo than the doubling it was meant to hide.
+- Gemini segmentation masks are a dead end on this key — models either 404, time out, or
+  return `"..."` in the mask field. `isolate()` exists because of that.
+- **Baked-in paper margins.** Scene generation sometimes insets the collage on a page. That
+  border is visible in the shot. `margin_box()` detects and crops it off the scene and every
+  piece identically, and runs automatically.
+- **Dark scenes and the ground fill.** The assembly fills knocked-out piece regions with the
+  scene's paper colour. That can't be the plain modal colour: halftone spreads the cream
+  ground over hundreds of near-identical values while a silhouette is one solid tone, so on a
+  dark scene the mode is near-black and the holes fill with ink. `paper_colour()` quantises
+  first, then takes the most common *light* tone.
+- **Drift vs the paper gap.** The assembly knocks a hole in the base for each piece. That hole
+  is deliberately dilated by `6 + drift` px, because `key_to_alpha` erodes the piece ~2px and
+  `drift` walks it away from home — without the dilation the piece slides off its own hole and
+  exposes a doubled copy of itself. The cost is a visible paper gap around each piece that
+  grows with drift. Cam picked drift=6 as the balance.
+- **Large headline text cannot be removed.** Small incidental writing (papers, laptop screens,
+  whiteboards) gets scrambled reliably. Big sharp headline text does not — tested with the text
+  rule as a priority-one override AND as a dedicated second image-to-image pass, both no effect,
+  with the model claiming success each time. If text is the point of a photo source, pick
+  another photo.
+- **Hallucinated content.** The model will invent detail to fill blurred or low-resolution
+  areas of a photo source — it put a person in an empty window on a 275x183 source. The scene
+  prompt forbids inventing anything not in the source and tells it to render low-detail areas
+  as plain shapes. Risk scales inversely with source resolution.
+
+## v2: the shot has an event
+
+`assemble` knocks every piece's region out of the base to flat paper stock, then the
+pieces slide in and rebuild the scene. `drift` adds slow travel on top of the boil. Both
+are on by default — Cam picked the combination over either alone.
+
+## Billing
+
+The project is on **prepaid credits**. When they run out the API returns a 429 whose message
+says "prepayment credits are depleted" — `post_json` detects that and fails immediately
+rather than retrying, since it will never resolve on its own. Top up or switch to
+pay-as-you-go at https://ai.studio/projects.
+
+## The pipeline by hand
+
+Everything above runs through `broll.py`. This is what it's doing underneath, if you ever
+need to drive it manually.
 
 ```bash
 cd ~/Coding/broll
@@ -161,73 +254,5 @@ render_pieces("out/scene.png", sorted(glob.glob("out/pieces/*.png")),
 PY
 ```
 
-Cost is roughly one generation for the scene plus one per piece, so ~$0.25 for a 5-piece
-shot.
-
-## Settings that are dialled in (don't change without a reason)
-
-| Setting | Value | Why |
-|---|---|---|
-| `FPS` | 12 | Low on purpose. Smooth motion kills the paper feel. |
-| `step` | 2 | Shoot on twos. Each pose holds 2 frames. Per-frame re-rolls read as film grain, not animation. |
-| `amp` | 0.5 | Jitter distance. ~0.5px / 0.175°. More than this reads as agitated. |
-| `PUSH_DEFAULT` | 0.065 | Slow eased zoom. The camera never jitters — only the pieces do. |
-| pieces | ~5 | 2 is too subtle. |
-| `assemble` | 1.0 | Pieces land over the first ~1.3s onto a knocked-out paper ground. Gives the shot an event. |
-| `drift` | 6 | Slow travel on top of the boil. Higher looks livelier but widens the paper gap (see below). |
-
-Distance (`BOIL_PX`/`BOIL_DEG` × `amp`) and rate (`FPS`, `step`) are independent knobs.
-
-## Gotchas
-
-- Key by **saturation**, not hue. The model returns ~`#04A943` for a requested `#00B140`
-  and print grain spreads it further. Subjects are pure B&W, so `max(rgb)-min(rgb)` is an
-  exact separator.
-- Erode the alpha before feathering, and neutralise any surviving saturated pixel, or you
-  get a green fringe where one piece borders another.
-- Scale pieces to the **frame's** zoomed size, never their own dimensions.
-- Rotate each piece about its own alpha-bbox centre, not the canvas centre.
-- `blur_under` is off. It made a worse halo than the doubling it was meant to hide.
-- Gemini segmentation masks are a dead end on this key — models either 404, time out, or
-  return `"..."` in the mask field. `isolate()` exists because of that.
-
-## v2: the shot has an event
-
-`assemble` knocks every piece's region out of the base to flat paper stock, then the
-pieces slide in and rebuild the scene. `drift` adds slow travel on top of the boil. Both
-are on by default — Cam picked the combination over either alone.
-
-## Billing
-
-The project is on **prepaid credits**. When they run out the API returns a 429 whose message
-says "prepayment credits are depleted" — `post_json` detects that and fails immediately
-rather than retrying, since it will never resolve on its own. Top up or switch to
-pay-as-you-go at https://ai.studio/projects.
-
-## Two things that will bite you
-
-**Baked-in paper margins.** Scene generation sometimes insets the collage on a page. That
-border is visible in the shot. `margin_box()` detects and crops it off the scene and every
-piece identically, and runs automatically.
-
-**Dark scenes and the ground fill.** The assembly fills knocked-out piece regions with the
-scene's paper colour. That can't be the plain modal colour: halftone spreads the cream
-ground over hundreds of near-identical values while a silhouette is one solid tone, so on a
-dark scene the mode is near-black and the holes fill with ink. `paper_colour()` quantises
-first, then takes the most common *light* tone.
-
-**Drift vs the paper gap.** The assembly knocks a hole in the base for each piece. That hole
-is deliberately dilated by `6 + drift` px, because `key_to_alpha` erodes the piece ~2px and
-`drift` walks it away from home — without the dilation the piece slides off its own hole and
-exposes a doubled copy of itself. The cost is a visible paper gap around each piece that
-grows with drift. Cam picked drift=6 as the balance.
-
-**Large headline text cannot be removed.** Small incidental writing (papers, laptop screens,
-whiteboards) gets scrambled reliably. Big sharp headline text does not — tested with the text
-rule as a priority-one override AND as a dedicated second image-to-image pass, both no effect,
-with the model claiming success each time. If text is the point of the photo, pick another photo.
-
-**Hallucinated content.** The model will invent detail to fill blurred or low-resolution
-areas — it put a person in an empty window on a 275x183 source. `SCENE_PROMPT` now forbids
-inventing anything not in the source and tells it to render low-detail areas as plain
-shapes. Risk scales inversely with source resolution.
+Cost is roughly one generation for the scene plus one per piece, so ~$0.25–0.45 for a
+5-piece shot depending on scene size.
