@@ -136,6 +136,14 @@ def main():
                     help='generate the scene from a description instead of a photo, e.g. '
                          '--text "a hand closing an old padlock, close up". Requires --out. '
                          "Tuned for a normal subject, not a wide establishing shot.")
+    ap.add_argument("--scene", dest="existing_scene", default=None,
+                    help="use this ALREADY-STYLIZED image as-is, no generation at all. For "
+                         "animating a still you already approved. Requires --out. This is "
+                         "the fix for a real recurring mistake: running an approved still "
+                         "through the normal photo path re-stylized it a second time, "
+                         "costing money and drifting the image (extra flagpoles appeared "
+                         "on a city hall shot this way). Now there's a code path where that "
+                         "cannot happen.")
     ap.add_argument("--out", default=None, help="output mp4 (default: alongside the photo)")
     ap.add_argument("--pieces", type=int, default=5)
     ap.add_argument("--dur", type=float, default=5.0)
@@ -157,10 +165,14 @@ def main():
                          "variants (different --bg, --dur, --drift) off one paid generation.")
     a = ap.parse_args()
 
-    if a.from_scene and a.text:
-        raise SystemExit("use --from or --text, not both")
+    modes = [m for m in (a.from_scene, a.text, a.existing_scene) if m]
+    if len(modes) > 1:
+        raise SystemExit("use only one of --from, --text, --scene")
 
-    if a.from_scene:
+    if a.existing_scene:
+        if not a.out:
+            raise SystemExit("--out is required with --scene")
+    elif a.from_scene:
         if not a.change:
             raise SystemExit("--from needs --change describing what to alter")
         if not a.out:
@@ -170,12 +182,12 @@ def main():
         if not a.out:
             raise SystemExit("--out is required with --text")
     elif not a.photo:
-        raise SystemExit("give a photo path, a URL, or use --from / --text")
+        raise SystemExit("give a photo path, a URL, or use --from / --text / --scene")
 
     is_url = bool(a.photo) and a.photo.startswith(("http://", "https://"))
     if is_url and not a.out:
         raise SystemExit("--out is required when the source is a URL")
-    if a.text:
+    if a.text or a.existing_scene:
         out = a.out
     else:
         stem = os.path.splitext(os.path.basename(a.photo.split("?")[0]))[0] or "downloaded"
@@ -197,6 +209,10 @@ def main():
 
     if a.reuse and os.path.exists(scene):
         print(f"[1/4] reusing {scene}")
+    elif a.existing_scene:
+        import shutil
+        print(f"[1/4] using {os.path.basename(a.existing_scene)} as-is, no generation")
+        shutil.copy(a.existing_scene, scene)
     elif a.from_scene:
         print(f"[1/4] varying {os.path.basename(a.from_scene)}")
         print(f"       change: {a.change}")
